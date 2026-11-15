@@ -272,7 +272,7 @@ const Defog: React.FC<{ duration: number }> = ({ duration }) => {
   const p = pop(f, fps, 20);
   return (
     <Canvas>
-      <rect width={1080} height={1920} fill="#e2dccf" />
+      <rect width={1080} height={1920} fill="#d4ccbc" />
       <g transform="translate(420 700) scale(0.8) translate(-540 -820)">
         <WindowPOV frame={f} fog={fog} />
       </g>
