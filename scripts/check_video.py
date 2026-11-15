@@ -9,7 +9,7 @@
   - speech-to-text of the MP4's audio gives back the script
   - the narration was made by the real voice, not the development placeholder
 
-It also saves frames from the opening, the airflow explanation and the ending to out/frames/
+It also saves one frame per narration sentence plus the ending to out/frames/
 and writes out/check-report.md.
 
 Usage: python3 scripts/check_video.py out/airplane-window-short-v2.mp4 airplane-window [--no-asr]
@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -26,7 +27,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from speechlib import RATE, db, decode_audio, read_wav, rms, transcribe, word_recall  # noqa: E402
+from speechlib import RATE, db, decode_audio, read_wav, rms, transcribe, whisper_word_times, word_recall, words_of  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 report: list[str] = []
@@ -122,7 +123,8 @@ def main() -> int:
         return finish()
     expect(a["codec_name"] == "aac", f"audio codec is AAC ({a.get('sample_rate')} Hz, {a.get('channels')} ch)",
            f"audio codec is {a['codec_name']}, expected aac")
-    expect(25.0 <= duration <= 30.0, f"duration is {duration:.2f}s (25-30s)", f"duration is {duration:.2f}s, outside 25-30s")
+    lo, hi = float(timing.get("minSeconds", 25)), float(timing.get("maxSeconds", 30))
+    expect(lo <= duration <= hi, f"duration is {duration:.2f}s ({lo:.0f}-{hi:.0f}s)", f"duration is {duration:.2f}s, outside {lo:.0f}-{hi:.0f}s")
     last = timing["lines"][-1]
     room = duration - (last["start"] + last["duration"])
     expect(room >= 0.8, f"last sentence ends {room:.2f}s before the video ends",
@@ -186,16 +188,41 @@ def main() -> int:
         except Exception as e:
             bad(f"speech-to-text check could not run: {type(e).__name__}: {e}")
 
+    # --- captions follow the voice ------------------------------------------------------------
+    caps = timing["captions"]
+    sync = timing.get("captionSync", "")
+    expect("estimated" not in sync, f"caption timing was measured from the audio ({sync})",
+           "caption timing is estimated, not measured from the generated voice")
+    by_line = {l["id"]: l for l in timing["lines"]}
+    ordered = all(a["start"] < b["start"] and a["end"] <= b["start"] + 0.001 for a, b in zip(caps, caps[1:]))
+    inside = all(by_line[c["line"]]["start"] - 0.05 <= c["start"] <= by_line[c["line"]]["start"] + by_line[c["line"]]["duration"] for c in caps)
+    longest = max(len(c["text"]) for c in caps)
+    expect(ordered and inside, f"{len(caps)} captions, one at a time, each starting inside its own sentence",
+           "captions overlap or start outside the sentence they belong to")
+    expect(longest <= 34, f"longest caption is {longest} characters (fits two large lines)", f"a caption is {longest} characters - too long to read")
+    if not args.no_asr:
+        # Independent cross-check on the FINAL file: where does speech-to-text hear each caption's first word?
+        try:
+            spoken = " ".join(c["spoken"] for c in caps)
+            heard_words = whisper_word_times(ROOT / "out" / "final-audio.wav", spoken)
+            diffs, i = [], 0
+            for c in caps:
+                diffs.append(abs(heard_words[i][1] - c["start"]))
+                i += len(words_of(c["spoken"]))
+            diffs_sorted = sorted(diffs)
+            median, worst = diffs_sorted[len(diffs) // 2], diffs_sorted[-1]
+            expect(median <= 0.25 and worst <= 0.8,
+                   f"captions match the voice in the final MP4: median offset {median:.2f}s, largest {worst:.2f}s (speech-to-text word timing)",
+                   f"captions drift from the voice in the final MP4: median offset {median:.2f}s, largest {worst:.2f}s")
+        except Exception as e:
+            bad(f"caption sync cross-check could not run: {type(e).__name__}: {e}")
+
     # --- frames to look at --------------------------------------------------------------------
     frames_dir = ROOT / "out" / "frames"
+    shutil.rmtree(frames_dir, ignore_errors=True)
     frames_dir.mkdir(parents=True, exist_ok=True)
-    by_id = {l["id"]: l for l in timing["lines"]}
-    flow = by_id.get("flow", timing["lines"][len(timing["lines"]) // 2])
-    shots = {
-        "1-opening": 1.5,
-        "2-airflow": flow["start"] + flow["duration"] * 0.85,
-        "3-ending": duration - 0.5,
-    }
+    shots = {f"{n + 1}-{l['id']}": l["start"] + l["duration"] * 0.8 for n, l in enumerate(timing["lines"])}
+    shots[f"{len(shots) + 1}-ending"] = min(duration - 0.1, last["start"] + last["duration"] + 0.3)
     for name, t in shots.items():
         target = frames_dir / f"{name}.jpg"
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t:.2f}", "-i", str(video), "-frames:v", "1", "-q:v", "3", str(target)], check=True)

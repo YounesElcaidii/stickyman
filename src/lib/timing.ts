@@ -7,7 +7,7 @@ export type TimingLine = {
   duration: number; // seconds
 };
 
-export type Caption = { text: string; start: number; end: number };
+export type Caption = { text: string; start: number; end: number; line?: string; spoken?: string };
 
 export type Timing = {
   engine: string;

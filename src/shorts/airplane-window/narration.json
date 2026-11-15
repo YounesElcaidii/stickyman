@@ -1,5 +1,8 @@
 {
   "title": "Why Do Airplane Windows Have a Tiny Hole?",
+  "composition": "AirplaneWindow",
+  "outputName": "airplane-window-short-v2",
+  "artifactName": "stickman-short-v2",
   "voice": "en_US-ljspeech-high",
   "voiceLicenseNote": "Piper voice trained on the LJ Speech dataset (public domain). The model card is saved next to the MP4 as voice-license.txt on every render.",
   "lengthScale": 1.0,
@@ -12,23 +15,42 @@
   "lines": [
     {
       "id": "hook",
-      "captions": ["Ever noticed", "this tiny hole", "in an airplane window?"]
+      "captions": [
+        "Ever noticed",
+        "this tiny hole",
+        "in an airplane window?"
+      ]
     },
     {
       "id": "middle",
-      "captions": ["It's in the middle pane."]
+      "captions": [
+        "It's in the middle pane."
+      ]
     },
     {
       "id": "flow",
-      "captions": ["When the cabin is pressurized,", "air passes through the hole", "and fills the gap", "between the panes."]
+      "captions": [
+        "When the cabin is pressurized,",
+        "air passes through the hole",
+        "and fills the gap",
+        "between the panes."
+      ]
     },
     {
       "id": "inside",
-      "captions": ["That puts cabin pressure", "on the inside of the outer pane."]
+      "captions": [
+        "That puts cabin pressure",
+        "on the inside of the outer pane."
+      ]
     },
     {
       "id": "difference",
-      "captions": ["The air outside", "is at a lower pressure,", "so the outer pane", "takes the pressure difference."]
+      "captions": [
+        "The air outside",
+        "is at a lower pressure,",
+        "so the outer pane",
+        "takes the pressure difference."
+      ]
     }
   ]
 }

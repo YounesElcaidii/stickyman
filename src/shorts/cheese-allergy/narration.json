@@ -1,0 +1,59 @@
+{
+  "title": "When a Cheese Prank Turned Fatal",
+  "composition": "CheeseAllergy",
+  "outputName": "cheese-allergy-short",
+  "artifactName": "stickman-cheese-allergy",
+  "factualReference": "Prevention of Future Deaths report, Karanbir Cheema, HM Senior Coroner M E Hassell, 10 May 2019 (ref 2019-0161), https://www.judiciary.uk/prevention-of-future-death-reports/karanbir-cheema/",
+  "voice": "en_US-ljspeech-high",
+  "voiceLicenseNote": "Piper voice trained on the LJ Speech dataset (public domain). The model card is saved next to the MP4 as voice-license.txt on every render.",
+  "lengthScale": 1.08,
+  "minLengthScale": 0.95,
+  "maxLengthScale": 1.2,
+  "gapSeconds": 0.6,
+  "maxGapSeconds": 1.3,
+  "leadInSeconds": 0.4,
+  "tailSeconds": 2.6,
+  "maxTailSeconds": 3.2,
+  "minSeconds": 30,
+  "maxSeconds": 35,
+  "pronunciations": {
+    "karanbir": "K AA R AH N B IH R",
+    "cheema": "CH IY M AH"
+  },
+  "previewText": "A tiny piece of cheese can be dangerous to someone with a severe milk allergy.",
+  "lines": [
+    {
+      "id": "hook",
+      "captions": ["A tiny piece of cheese", "can be dangerous", "to someone with", "a severe milk allergy."]
+    },
+    {
+      "id": "case",
+      "captions": [
+        { "show": "In 2017,", "say": "In twenty seventeen," },
+        "thirteen-year-old",
+        "Karanbir Cheema",
+        "suffered a severe",
+        "allergic reaction",
+        "after another pupil",
+        "threw a piece of cheese",
+        "at him at school."
+      ]
+    },
+    {
+      "id": "anaphylaxis",
+      "captions": ["A reaction this severe", "is called anaphylaxis."]
+    },
+    {
+      "id": "effects",
+      "captions": ["It can affect breathing", "and blood pressure."]
+    },
+    {
+      "id": "died",
+      "captions": ["Karanbir later died."]
+    },
+    {
+      "id": "reminder",
+      "captions": ["His story is a reminder", "to take food allergies seriously."]
+    }
+  ]
+}

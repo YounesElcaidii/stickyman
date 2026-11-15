@@ -6,7 +6,7 @@ import React from "react";
  * 0 = straight down, 90 = pointing forward (+x), -90 = pointing backward, 180 = up.
  */
 
-export type Expression = "neutral" | "happy" | "surprised" | "curious" | "thinking" | "grin";
+export type Expression = "neutral" | "happy" | "surprised" | "curious" | "thinking" | "grin" | "calm";
 
 export type Pose = {
   armL: [number, number]; // [upper, lower] — the arm drawn behind the body
@@ -115,6 +115,9 @@ export const Face: React.FC<FaceProps> = ({ expression, lookX, lookY, turn, blin
         strokeLinecap="round"
       />
     );
+  } else if (expression === "calm") {
+    // quiet, level mouth for serious moments
+    mouth = <path d={`M ${mx - 12 * s} ${my + 2 * s} L ${mx + 12 * s} ${my + 2 * s}`} stroke={INK} strokeWidth={6 * s} fill="none" strokeLinecap="round" />;
   } else if (expression === "thinking") {
     mouth = (
       <path
@@ -173,6 +176,7 @@ export type StickmanProps = {
   faceColor?: string;
   shirt?: string;
   thumb?: boolean; // draws a thumbs-up on the front hand
+  onDark?: boolean; // light body lines, for dark backgrounds
 };
 
 export const Stickman: React.FC<StickmanProps> = ({
@@ -190,6 +194,7 @@ export const Stickman: React.FC<StickmanProps> = ({
   faceColor = "#fff4e0",
   shirt,
   thumb = false,
+  onDark = false,
 }) => {
   const sw = 14;
   const hip = { x: 0, y: 0 };
@@ -207,14 +212,16 @@ export const Stickman: React.FC<StickmanProps> = ({
   const armR = limb(shoulder, pose.armR, 80, 74);
   const legL = limb(hip, pose.legL, 92, 92);
   const legR = limb(hip, pose.legR, 92, 92);
-  const line = (d: string, color = INK) => (
+  const body = onDark ? "#eef1f8" : INK;
+  const bodyBack = onDark ? "#aab3c8" : "#3a4152";
+  const line = (d: string, color = body) => (
     <path d={d} stroke={color} strokeWidth={sw} fill="none" strokeLinecap="round" strokeLinejoin="round" />
   );
 
   return (
     <g transform={`translate(${x} ${y}) scale(${flip ? -scale : scale} ${scale})`}>
-      {line(armL.d, "#3a4152")}
-      {line(legL.d, "#3a4152")}
+      {line(armL.d, bodyBack)}
+      {line(legL.d, bodyBack)}
       {line(`M ${hip.x} ${hip.y} L ${neck.x} ${neck.y}`)}
       {shirt && (
         <path
@@ -233,7 +240,7 @@ export const Stickman: React.FC<StickmanProps> = ({
           <rect x={-8} y={-44} width={15} height={36} rx={7} fill={faceColor} stroke={INK} strokeWidth={6} />
         </g>
       ) : (
-        <circle cx={armR.end.x} cy={armR.end.y} r={9} fill={INK} />
+        <circle cx={armR.end.x} cy={armR.end.y} r={9} fill={body} />
       )}
       <g transform={`translate(${head.x} ${head.y}) rotate(${pose.headTilt}) ${flip ? "scale(-1 1)" : ""}`}>
         <Face

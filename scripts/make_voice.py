@@ -31,6 +31,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import speechlib  # noqa: E402
 from speechlib import RATE, db, loudness_gain, soft_limit, log, read_wav, rms, transcribe, word_recall, word_times, words_of, write_wav  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -146,7 +147,11 @@ def main() -> int:
 
     cfg = json.loads((ROOT / "src" / "shorts" / args.short / "narration.json").read_text())
     for line in cfg["lines"]:
-        line["text"] = " ".join(line["captions"])
+        # A caption is either plain text, or {"show": on-screen text, "say": how it is spoken}.
+        line["captions"] = [c if isinstance(c, dict) else {"show": c, "say": c} for c in line["captions"]]
+        line["text"] = " ".join(c["show"] for c in line["captions"])
+        line["spoken"] = " ".join(c["say"] for c in line["captions"])
+    speechlib.PRONUNCIATIONS.update({k.lower(): v for k, v in cfg.get("pronunciations", {}).items()})
     pub = ROOT / "public" / "shorts" / args.short
     work = OUT / "voice-work"
     OUT.mkdir(exist_ok=True)
@@ -177,12 +182,13 @@ def main() -> int:
     #    sentences (time for each animation to land), and only then nudge the speaking speed.
     base_gap, lead, base_tail = float(cfg["gapSeconds"]), float(cfg["leadInSeconds"]), float(cfg["tailSeconds"])
     max_gap, max_tail = float(cfg.get("maxGapSeconds", 1.0)), float(cfg.get("maxTailSeconds", 2.2))
+    min_scale, max_scale = float(cfg.get("minLengthScale", 0.88)), float(cfg.get("maxLengthScale", 1.15))
     lo, hi = float(cfg["minSeconds"]), float(cfg["maxSeconds"])
     n_gaps = len(cfg["lines"]) - 1
     clips: list[np.ndarray] = []
     total, gap, tail = 0.0, base_gap, base_tail
     for attempt in range(4):
-        clips = [synth(args.engine, onnx, l["text"], work / f"{l['id']}.wav", scale) for l in cfg["lines"]]
+        clips = [synth(args.engine, onnx, l["spoken"], work / f"{l['id']}.wav", scale) for l in cfg["lines"]]
         speech = sum(len(c) for c in clips) / RATE
         gap, tail = base_gap, base_tail
         total = lead + speech + gap * n_gaps + tail
@@ -197,7 +203,7 @@ def main() -> int:
         if lo + 0.9 <= total <= hi - 0.7:
             break
         wanted = (lo + 1.0) if total < lo + 0.9 else (hi - 1.0)
-        scale = max(0.88, min(1.15, scale * (speech + wanted - total) / speech))
+        scale = max(min_scale, min(max_scale, scale * (speech + wanted - total) / speech))
     if not (lo + 0.3 <= total <= hi - 0.3):
         die(f"narration makes a {total:.2f}s video, outside {lo:.0f}-{hi:.0f}s; shorten or lengthen the script")
 
@@ -212,18 +218,19 @@ def main() -> int:
         track[start:start + len(clip)] = clip
         dur = len(clip) / RATE
         write_wav(work / f"{line['id']}-final.wav", clip)
-        check_speech(f"line '{line['id']}'", clip, work / f"{line['id']}-final.wav", line["text"], asr=False)
+        check_speech(f"line '{line['id']}'", clip, work / f"{line['id']}-final.wav", line["spoken"], asr=False)
 
         # Caption timing comes from where each word really is in the audio.
-        words, method = word_times(clip, RATE, line["text"], work / f"{line['id']}-final.wav", asr)
+        words, method = word_times(clip, RATE, line["spoken"], work / f"{line['id']}-final.wav", asr)
         methods.add(method)
         i = 0
-        for phrase in line["captions"]:
-            n = len(words_of(phrase))
+        for cap in line["captions"]:
+            n = len(words_of(cap["say"]))
             first, last = words[i], words[i + n - 1]
-            captions.append({"text": phrase, "start": round(t + first[1], 3), "end": round(t + last[2], 3)})
+            captions.append({"text": cap["show"], "spoken": cap["say"], "line": line["id"],
+                             "start": round(t + first[1], 3), "end": round(t + last[2], 3)})
             i += n
-        lines.append({"id": line["id"], "text": line["text"], "start": round(t, 3), "duration": round(dur, 3)})
+        lines.append({"id": line["id"], "text": line["text"], "spoken": line["spoken"], "start": round(t, 3), "duration": round(dur, 3)})
         t += dur + gap
 
     # Each caption stays up until the next one starts (or a beat after the sentence ends).
@@ -240,6 +247,8 @@ def main() -> int:
         "voice": voice_name,
         "lengthScale": round(scale, 3),
         "totalSeconds": round(total, 3),
+        "minSeconds": lo,
+        "maxSeconds": hi,
         "audio": f"shorts/{args.short}/narration.wav",
         "captionSync": " + ".join(sorted(methods)),
         "lines": lines,

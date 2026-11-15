@@ -76,12 +76,18 @@ def words_of(text: str) -> list[str]:
     return [w for w in re.sub(r"[^a-z' ]+", " ", text).split() if w.strip("'")]
 
 
+PRONUNCIATIONS: dict[str, str] = {}  # extra words for the aligner (ARPAbet), set per Short
+
+
 def align_words(samples: np.ndarray, rate: int, text: str) -> list[tuple[str, float, float]]:
     """Forced alignment: returns (word, start_seconds, end_seconds) for every word of `text`."""
     from pocketsphinx import Decoder
 
     words = words_of(text)
     decoder = Decoder(samprate=rate, loglevel="FATAL")
+    for w, phones in PRONUNCIATIONS.items():
+        if decoder.lookup_word(w) is None:
+            decoder.add_word(w, phones, True)
     missing = [w for w in words if decoder.lookup_word(w) is None]
     if missing:
         raise RuntimeError(f"words missing from the alignment dictionary: {missing}")

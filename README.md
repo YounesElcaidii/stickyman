@@ -5,17 +5,18 @@ entirely on GitHub Actions — no PC, no manual editing, no voice recording, no 
 
 ## Shorts
 
-| Short | Composition | Output |
-| --- | --- | --- |
-| Why Do Airplane Windows Have a Tiny Hole? | `AirplaneWindow` | `airplane-window-short-v2.mp4` |
+| Short | Folder | Composition | Artifact | File |
+| --- | --- | --- | --- | --- |
+| Why Do Airplane Windows Have a Tiny Hole? | `airplane-window` | `AirplaneWindow` | `stickman-short-v2` | `airplane-window-short-v2.mp4` |
+| When a Cheese Prank Turned Fatal | `cheese-allergy` | `CheeseAllergy` | `stickman-cheese-allergy` | `cheese-allergy-short.mp4` |
 
-## Get the video from your phone
+## Get a video from your phone
 
-1. On github.com open the repo → **Actions** → **Render Video** → **Run workflow** → **Run workflow**.
-   (The workflow also runs by itself on every pull request that changes the video.)
-2. Wait for the green check (about 6–10 minutes) and open the run.
-3. Under **Artifacts** download **stickman-short-v2**. It is a `.zip` containing:
-   - `airplane-window-short-v2.mp4` — the full 1080 × 1920 file to upload
+1. On github.com open the repo → **Actions** → **Render Video** → **Run workflow**, pick the Short, → **Run workflow**.
+   (The workflow also renders every Short on each pull request that changes the videos.)
+2. Wait for the green check (about 3–5 minutes) and open the run.
+3. Under **Artifacts** download the Short's artifact (see the table above). It is a `.zip` containing:
+   - the full 1080 × 1920 `.mp4` to upload
    - `voice-preview.wav` — a short sample of the voice
    - `voice-license.txt` — the voice's model card (license record)
    - `check-report.md` and `frames/` — what the automatic check verified
@@ -36,9 +37,9 @@ downscaled and re-encoded.
 - `src/components/` — reusable pieces: `Stickman` (poses + expressive face) and `Captions`
   (kept clear of the YouTube Shorts buttons on the right and the title area at the bottom).
 - `scripts/check_video.py` — the delivery check. It fails the run unless the MP4 is H.264 at
-  exactly 1080 × 1920 and 30 fps with AAC audio, lasts 25–30 s, does not clip, has every narration
+  exactly 1080 × 1920 and 30 fps with AAC audio, lasts the length set in `narration.json`, does not clip, has every narration
   sentence audible at the right time and clearly above the sound effects, and speech-to-text of
-  the final file gives back the script.
+  the final file gives back the script, with caption timing cross-checked against it.
 
 ## Voice and license
 
@@ -49,9 +50,13 @@ several Piper voices are trained on non-commercial datasets.
 
 ## Making the next Short
 
-1. Copy `src/shorts/airplane-window` to `src/shorts/<new-id>`; edit `narration.json` and the scenes.
-2. Register a new `<Composition>` in `src/Root.tsx`.
-3. Run **Render Video** with `short`, `composition` and `output_name` set for the new Short.
+1. Create `src/shorts/<new-id>/` with a `narration.json` (script, `composition`, `outputName`,
+   `artifactName`, length window) and the scene components. `cheese-allergy` is the newest example.
+   A caption can be `{"show": "In 2017,", "say": "In twenty seventeen,"}` when the spoken words
+   differ from the on-screen text; unusual names go in `pronunciations` for the caption aligner.
+2. Add the Short to `SHORTS` in `src/Root.tsx` and to the `short` options in
+   `.github/workflows/render-video.yml`.
+3. Open a pull request (it renders automatically) or run **Render Video** and pick the Short.
 
 ## Local development (optional)
 
