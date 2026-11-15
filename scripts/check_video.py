@@ -205,15 +205,23 @@ def main() -> int:
         try:
             spoken = " ".join(c["spoken"] for c in caps)
             heard_words = whisper_word_times(ROOT / "out" / "final-audio.wav", spoken)
-            diffs, i = [], 0
+            # Compare only captions whose first word was itself recognised; a word the recogniser
+            # spelled differently (a name, a number) has no measured time of its own.
+            offsets, i = [], 0
+            print("  caption sync (caption start vs. where speech-to-text hears its first word):", flush=True)
             for c in caps:
-                diffs.append(abs(heard_words[i][1] - c["start"]))
+                w = heard_words[i]
+                if w[3]:
+                    offsets.append(w[1] - c["start"])
+                    print(f"    {c['start']:6.2f}s  {w[1] - c['start']:+.2f}s  {c['text']}", flush=True)
+                else:
+                    print(f"    {c['start']:6.2f}s   (n/a)  {c['text']}", flush=True)
                 i += len(words_of(c["spoken"]))
-            diffs_sorted = sorted(diffs)
-            median, worst = diffs_sorted[len(diffs) // 2], diffs_sorted[-1]
-            expect(median <= 0.25 and worst <= 0.8,
-                   f"captions match the voice in the final MP4: median offset {median:.2f}s, largest {worst:.2f}s (speech-to-text word timing)",
-                   f"captions drift from the voice in the final MP4: median offset {median:.2f}s, largest {worst:.2f}s")
+            mags = sorted(abs(o) for o in offsets)
+            median, worst = mags[len(mags) // 2], mags[-1]
+            expect(len(offsets) >= 0.7 * len(caps) and median <= 0.2 and worst <= 0.5,
+                   f"captions match the voice in the final MP4: {len(offsets)} of {len(caps)} captions cross-checked, median offset {median:.2f}s, largest {worst:.2f}s",
+                   f"captions drift from the voice in the final MP4: {len(offsets)} of {len(caps)} cross-checked, median offset {median:.2f}s, largest {worst:.2f}s")
         except Exception as e:
             bad(f"caption sync cross-check could not run: {type(e).__name__}: {e}")
 

@@ -132,7 +132,7 @@ def transcribe(path: Path, model_name: str = "base.en") -> str:
     return " ".join(s.text.strip() for s in segments).strip()
 
 
-def whisper_word_times(path: Path, text: str, model_name: str = "base.en") -> list[tuple[str, float, float]]:
+def whisper_word_times(path: Path, text: str, model_name: str = "base.en") -> list[tuple]:
     """Word timing from Whisper's word timestamps, matched onto the known script."""
     import difflib
 
@@ -150,7 +150,7 @@ def whisper_word_times(path: Path, text: str, model_name: str = "base.en") -> li
     return match_word_times(words_of(text), heard)
 
 
-def match_word_times(script: list[str], heard: list[tuple[str, float, float]]) -> list[tuple[str, float, float]]:
+def match_word_times(script: list[str], heard: list[tuple[str, float, float]]) -> list[tuple]:
     """Map recognised word times onto the script words; unmatched words are interpolated."""
     import difflib
 
@@ -162,6 +162,7 @@ def match_word_times(script: list[str], heard: list[tuple[str, float, float]]) -
     matched = sum(t is not None for t in times)
     if not heard or matched < 0.6 * len(script):
         raise RuntimeError(f"only {matched} of {len(script)} script words were recognised")
+    was_heard = [t is not None for t in times]
     known = [i for i, t in enumerate(times) if t is not None]
     for i in range(len(script)):
         if times[i] is None:
@@ -173,7 +174,8 @@ def match_word_times(script: list[str], heard: list[tuple[str, float, float]]) -
             hi_i = after if after is not None else len(script)
             step = (b - a) / (hi_i - lo_i)
             times[i] = (a + step * (i - lo_i - 0.5), a + step * (i - lo_i + 0.5))
-    return [(w, t[0], t[1]) for w, t in zip(script, times)]
+    # 4th field: True when the word itself was recognised, False when its time is interpolated
+    return [(w, t[0], t[1], h) for w, t, h in zip(script, times, was_heard)]
 
 
 def estimate_word_times(samples: np.ndarray, rate: int, text: str) -> list[tuple[str, float, float]]:
