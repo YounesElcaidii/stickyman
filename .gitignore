@@ -1,0 +1,7 @@
+node_modules/
+out/
+.voices/
+public/shorts/*/voice/
+public/shorts/*/timing.json
+public/sfx/
+__pycache__/

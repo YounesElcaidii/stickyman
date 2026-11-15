@@ -1,0 +1,18 @@
+{
+  "title": "Why Do Airplane Windows Have a Tiny Hole?",
+  "voice": "en_US-ryan-high",
+  "lengthScale": 0.95,
+  "gapSeconds": 0.25,
+  "leadInSeconds": 0.3,
+  "tailSeconds": 1.6,
+  "minSeconds": 25,
+  "maxSeconds": 30,
+  "lines": [
+    { "id": "hook", "text": "Ever noticed this tiny hole in an airplane window?" },
+    { "id": "panes", "text": "That window is actually three panes stacked together." },
+    { "id": "middle", "text": "And the hole is drilled in the middle pane, not the outer one." },
+    { "id": "pressure", "text": "Up high, cabin air is pressurized, but the air outside is thin." },
+    { "id": "gap", "text": "The hole lets cabin air reach the gap between the panes, so the outer pane takes most of the pressure difference." },
+    { "id": "backup", "text": "That keeps the middle pane fresh as a backup, and it lets moisture out so your window stays clear." }
+  ]
+}

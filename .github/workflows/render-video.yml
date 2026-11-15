@@ -1,0 +1,82 @@
+name: Render Video
+
+on:
+  workflow_dispatch:
+    inputs:
+      short:
+        description: "Short folder in src/shorts"
+        default: "airplane-window"
+        required: true
+      composition:
+        description: "Remotion composition id (see src/Root.tsx)"
+        default: "AirplaneWindow"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      SHORT: ${{ inputs.short || 'airplane-window' }}
+      COMPOSITION: ${{ inputs.composition || 'AirplaneWindow' }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install system tools (ffmpeg, espeak-ng fallback voice)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg espeak-ng
+
+      - name: Install Node packages
+        run: npm ci
+
+      - name: Install free text-to-speech (Piper)
+        run: pip install -r requirements.txt
+
+      - name: Cache Piper voice model
+        uses: actions/cache@v4
+        with:
+          path: .voices
+          key: piper-voices-${{ hashFiles('src/shorts/*/narration.json') }}
+          restore-keys: piper-voices-
+
+      - name: Generate narration
+        run: |
+          python3 scripts/make_voice.py "$SHORT" --engine auto
+          python3 scripts/make_sfx.py
+          cat "public/shorts/$SHORT/timing.json"
+
+      - name: Install headless browser for Remotion
+        run: npx remotion browser ensure
+
+      - name: Render video
+        run: |
+          mkdir -p out
+          npx remotion render "$COMPOSITION" "out/$SHORT-short.mp4" --concurrency=2
+
+      - name: Check video and audio
+        run: bash scripts/check_video.sh "out/$SHORT-short.mp4"
+
+      - name: Upload MP4
+        uses: actions/upload-artifact@v4
+        with:
+          name: stickman-short
+          path: out/${{ env.SHORT }}-short.mp4
+          if-no-files-found: error
+          retention-days: 30
