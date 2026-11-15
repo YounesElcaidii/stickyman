@@ -1,0 +1,168 @@
+name: Render Video
+
+on:
+  workflow_dispatch:
+    inputs:
+      short:
+        description: "Which Short to render (folder in src/shorts), or 'all'"
+        type: choice
+        options:
+          - cheese-allergy
+          - airplane-window
+          - all
+        default: "cheese-allergy"
+        required: true
+  # Also renders on pull requests that touch the videos, so each MP4 can be checked before merging.
+  pull_request:
+    paths:
+      - "src/**"
+      - "scripts/**"
+      - "package*.json"
+      - "requirements.txt"
+      - ".github/workflows/render-video.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Lists the Shorts to render: the one picked by hand, or every Short on a pull request.
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      shorts: ${{ steps.list.outputs.shorts }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: list
+        env:
+          PICK: ${{ inputs.short || 'all' }}
+        run: |
+          if [ "$PICK" = "all" ]; then
+            shorts=$(ls -d src/shorts/*/ | xargs -n1 basename | python3 -c "import sys,json;print(json.dumps(sys.stdin.read().split()))")
+          else
+            test -f "src/shorts/$PICK/narration.json"
+            shorts=$(python3 -c "import sys,json;print(json.dumps([sys.argv[1]]))" "$PICK")
+          fi
+          echo "shorts=$shorts" >> "$GITHUB_OUTPUT"
+          echo "Rendering: $shorts"
+
+  render:
+    needs: plan
+    name: render (${{ matrix.short }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        short: ${{ fromJson(needs.plan.outputs.shorts) }}
+    env:
+      SHORT: ${{ matrix.short }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      # Composition id, file name and artifact name come from the Short's narration.json.
+      - name: Read this Short's settings
+        run: |
+          python3 - <<'PY' >> "$GITHUB_ENV"
+          import json, os
+          cfg = json.load(open(f"src/shorts/{os.environ['SHORT']}/narration.json"))
+          print(f"COMPOSITION={cfg['composition']}")
+          print(f"OUTPUT={cfg['outputName']}")
+          print(f"ARTIFACT={cfg['artifactName']}")
+          PY
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install ffmpeg
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+
+      - name: Install text-to-speech and speech-check tools (free, no API keys)
+        run: pip install -r requirements.txt
+
+      - name: Cache voice and speech-check models
+        uses: actions/cache@v4
+        with:
+          path: |
+            .voices
+            ~/.cache/huggingface
+          key: speech-models-${{ hashFiles('src/shorts/*/narration.json', 'requirements.txt') }}
+
+      # Step 1: prove the voice works BEFORE rendering anything.
+      # Fails with the exact error if the voice cannot be downloaded or does not speak clear English.
+      - name: Generate and check a short voice sample
+        run: python3 scripts/make_voice.py "$SHORT" --preview-only
+
+      - name: Generate full narration and caption timing
+        run: |
+          python3 scripts/make_voice.py "$SHORT"
+          python3 scripts/make_sfx.py
+
+      - name: Install Node packages
+        run: npm ci
+
+      - name: Install headless browser for Remotion
+        run: npx remotion browser ensure
+
+      - name: Render 1080x1920 video
+        run: |
+          mkdir -p out
+          npx remotion render "$COMPOSITION" "out/$OUTPUT.mp4" --concurrency=2
+
+      - name: Check the delivery file (size, streams, speech, clipping, frames)
+        run: python3 scripts/check_video.py "out/$OUTPUT.mp4" "$SHORT"
+
+      - name: Write run summary
+        if: always()
+        run: |
+          {
+            if [ -f out/check-report.md ]; then cat out/check-report.md; else echo "## Render stopped before the delivery check"; echo; echo "Open the failed step above for the exact error."; fi
+            echo
+            if [ -f "public/shorts/$SHORT/timing.json" ]; then
+              echo "Voice: $(python3 -c "import json,sys;t=json.load(open(sys.argv[1]));print(t['voice'],'| caption sync:',t['captionSync'],'| length:',t['totalSeconds'],'s')" "public/shorts/$SHORT/timing.json")"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Only a file that passed every check is published.
+      - name: Collect delivery files
+        run: |
+          mkdir -p deliver
+          cp "out/$OUTPUT.mp4" out/voice-preview.wav out/voice-license.txt out/check-report.md deliver/
+          cp -r out/frames deliver/frames
+
+      - name: Upload MP4
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT }}
+          path: deliver/
+          if-no-files-found: error
+          retention-days: 30
+
+      # If anything failed, still share the voice sample and logs so the problem can be judged.
+      - name: Upload voice sample for debugging (failed runs only)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: render-debug-${{ matrix.short }}
+          path: |
+            out/voice-preview.wav
+            out/voice-license.txt
+            out/check-report.md
+            out/frames
+          if-no-files-found: ignore
+          retention-days: 7

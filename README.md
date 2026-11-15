@@ -1,1 +1,72 @@
 # stickyman
+
+Stickman explainer YouTube Shorts, built with [Remotion](https://www.remotion.dev/) and rendered
+entirely on GitHub Actions — no PC, no manual editing, no voice recording, no paid API keys.
+
+## Shorts
+
+| Short | Folder | Composition | Artifact | File |
+| --- | --- | --- | --- | --- |
+| Why Do Airplane Windows Have a Tiny Hole? | `airplane-window` | `AirplaneWindow` | `stickman-short-v2` | `airplane-window-short-v2.mp4` |
+| When a Cheese Prank Turned Fatal | `cheese-allergy` | `CheeseAllergy` | `stickman-cheese-allergy` | `cheese-allergy-short.mp4` |
+
+## Get a video from your phone
+
+1. On github.com open the repo → **Actions** → **Render Video** → **Run workflow**, pick the Short, → **Run workflow**.
+   (The workflow also renders every Short on each pull request that changes the videos.)
+2. Wait for the green check (about 3–5 minutes) and open the run.
+3. Under **Artifacts** download the Short's artifact (see the table above). It is a `.zip` containing:
+   - the full 1080 × 1920 `.mp4` to upload
+   - `voice-preview.wav` — a short sample of the voice
+   - `voice-license.txt` — the voice's model card (license record)
+   - `check-report.md` and `frames/` — what the automatic check verified
+
+Always download the MP4 from the artifact. Copies previewed inside chat apps are often
+downscaled and re-encoded.
+
+## How it works
+
+- `src/shorts/<short>/narration.json` — the script. Each line is one sentence, split into the
+  caption phrases that appear on screen.
+- `scripts/make_voice.py` — narration with [Piper](https://github.com/OHF-Voice/piper1-gpl), a free
+  neural text-to-speech engine that runs on the runner's CPU. It first makes and checks a short
+  voice sample, then the full narration, then measures where every word is in the audio so the
+  captions follow the real voice. **There is no fallback voice:** if the voice cannot be downloaded
+  or a speech-to-text pass cannot understand it, the run fails with the exact error.
+- `src/shorts/<short>/*.tsx` — the scenes, driven by the measured narration timing.
+- `src/components/` — reusable pieces: `Stickman` (poses + expressive face) and `Captions`
+  (kept clear of the YouTube Shorts buttons on the right and the title area at the bottom).
+- `scripts/check_video.py` — the delivery check. It fails the run unless the MP4 is H.264 at
+  exactly 1080 × 1920 and 30 fps with AAC audio, lasts the length set in `narration.json`, does not clip, has every narration
+  sentence audible at the right time and clearly above the sound effects, and speech-to-text of
+  the final file gives back the script, with caption timing cross-checked against it.
+
+## Voice and license
+
+The voice is `en_US-ljspeech-high`, a Piper voice trained on the public-domain LJ Speech dataset.
+Its model card is downloaded on every render and shipped next to the MP4 as `voice-license.txt`.
+To try another voice, change `"voice"` in `narration.json` — check its model card first, because
+several Piper voices are trained on non-commercial datasets.
+
+## Making the next Short
+
+1. Create `src/shorts/<new-id>/` with a `narration.json` (script, `composition`, `outputName`,
+   `artifactName`, length window) and the scene components. `cheese-allergy` is the newest example.
+   A caption can be `{"show": "In 2017,", "say": "In twenty seventeen,"}` when the spoken words
+   differ from the on-screen text; unusual names go in `pronunciations` for the caption aligner.
+2. Add the Short to `SHORTS` in `src/Root.tsx` and to the `short` options in
+   `.github/workflows/render-video.yml`.
+3. Open a pull request (it renders automatically) or run **Render Video** and pick the Short.
+
+## Local development (optional)
+
+```bash
+npm ci && pip install -r requirements.txt     # Python 3.13
+python3 scripts/make_voice.py airplane-window && python3 scripts/make_sfx.py
+npm run studio          # live preview
+npx remotion render AirplaneWindow out/airplane-window-short-v2.mp4
+python3 scripts/check_video.py out/airplane-window-short-v2.mp4 airplane-window
+```
+
+Offline, without the Piper voice, `--engine espeak-dev --no-asr` gives a robotic placeholder for
+layout work only; the delivery check refuses videos made with it.
