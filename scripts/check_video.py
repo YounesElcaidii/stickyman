@@ -148,10 +148,12 @@ def main() -> int:
     expect(db(rms(mix)) > -30, f"overall loudness {db(rms(mix)):.1f} dBFS", f"audio too quiet overall ({db(rms(mix)):.1f} dBFS)")
 
     worst_ratio = 99.0
+    lags: list[float] = []
     for line in timing["lines"]:
         s, n = int(line["start"] * RATE), int(line["duration"] * RATE)
         ref_seg = ref[s: s + n]
         match, start = best_match(mix, ref_seg, s, 2205)  # allow +-0.1s of encoder delay
+        lags.append((start - s) / RATE)
         seg = mix[start: start + n]
         if len(seg) < n:
             seg = np.concatenate([seg, np.zeros(n - len(seg), np.float32)])
@@ -167,6 +169,9 @@ def main() -> int:
             bad(f"the audio at {label} is not the generated narration (waveform match {match:.2f})")
         else:
             ok(f"spoken line present: {label} - level {level:.1f} dBFS, waveform match {match:.2f}, {ratio:.0f} dB above everything else")
+    worst_lag = max(abs(x) for x in lags)
+    expect(worst_lag <= 0.04, f"audio sits where the timing says it does: every sentence within {worst_lag * 1000:.0f} ms in the final MP4",
+           f"audio is shifted in the final MP4 by up to {worst_lag * 1000:.0f} ms against the caption timing")
     expect(worst_ratio >= 15, f"narration is at least {worst_ratio:.0f} dB above sound effects/background",
            f"narration is only {worst_ratio:.0f} dB above the background")
 
@@ -200,28 +205,50 @@ def main() -> int:
     expect(ordered and inside, f"{len(caps)} captions, one at a time, each starting inside its own sentence",
            "captions overlap or start outside the sentence they belong to")
     expect(longest <= 34, f"longest caption is {longest} characters (fits two large lines)", f"a caption is {longest} characters - too long to read")
+    # Recogniser-free spot check: where a caption starts right after a spoken pause (a comma),
+    # the pause is visible in the waveform, so the caption start can be measured against it exactly.
+    hop = int(0.01 * RATE)
+    env = np.array([rms(mix[i: i + hop]) for i in range(0, len(mix) - hop, hop)])
+    loud = env > 10 ** (-38 / 20)
+    onsets = [i * 0.01 for i in range(8, len(loud)) if loud[i] and not loud[i - 8: i].any()]  # speech after >= 80 ms of quiet
+    measured = []
+    for prev, c in zip(caps, caps[1:]):
+        if c["line"] == prev["line"] and prev["text"].rstrip()[-1:] in ",;:":
+            near = [o for o in onsets if abs(o - c["start"]) <= 0.4]
+            if near:
+                o = min(near, key=lambda x: abs(x - c["start"]))
+                measured.append((c["text"], c["start"] - o))
+    for text, d in measured:
+        # appearing during the pause, just ahead of its words, is fine; appearing late is not
+        expect(-0.35 <= d <= 0.12, f"caption \"{text}\" appears {d * 1000:+.0f} ms relative to its first word after a pause (waveform measurement)",
+               f"caption \"{text}\" is {d * 1000:+.0f} ms off its first word after a pause (waveform measurement)")
+
     if not args.no_asr:
-        # Independent cross-check on the FINAL file: where does speech-to-text hear each caption's first word?
+        # Coarse independent cross-check on the FINAL file with speech-to-text word timestamps.
+        # These timestamps run early after pauses (by up to ~0.7 s at sentence starts, where the
+        # true time is known), so this only catches gross errors such as captions off by a phrase.
         try:
             spoken = " ".join(c["spoken"] for c in caps)
             heard_words = whisper_word_times(ROOT / "out" / "final-audio.wav", spoken)
-            # Compare only captions whose first word was itself recognised; a word the recogniser
-            # spelled differently (a name, a number) has no measured time of its own.
-            offsets, i = [], 0
-            print("  caption sync (caption start vs. where speech-to-text hears its first word):", flush=True)
-            for c in caps:
+            offsets, i, first_of_line = [], 0, set()
+            seen = set()
+            for n, c in enumerate(caps):
+                if c["line"] not in seen:
+                    seen.add(c["line"])
+                    first_of_line.add(n)
+            print("  caption start vs. speech-to-text word time (coarse):", flush=True)
+            for n, c in enumerate(caps):
                 w = heard_words[i]
-                if w[3]:
+                note = "sentence start" if n in first_of_line else ("" if w[3] else "word not recognised")
+                if w[3] and n not in first_of_line:
                     offsets.append(w[1] - c["start"])
-                    print(f"    {c['start']:6.2f}s  {w[1] - c['start']:+.2f}s  {c['text']}", flush=True)
-                else:
-                    print(f"    {c['start']:6.2f}s   (n/a)  {c['text']}", flush=True)
+                print(f"    {c['start']:6.2f}s  {w[1] - c['start']:+.2f}s  {c['text']}  {('(' + note + ', not counted)') if note else ''}", flush=True)
                 i += len(words_of(c["spoken"]))
             mags = sorted(abs(o) for o in offsets)
             median, worst = mags[len(mags) // 2], mags[-1]
-            expect(len(offsets) >= 0.7 * len(caps) and median <= 0.2 and worst <= 0.5,
-                   f"captions match the voice in the final MP4: {len(offsets)} of {len(caps)} captions cross-checked, median offset {median:.2f}s, largest {worst:.2f}s",
-                   f"captions drift from the voice in the final MP4: {len(offsets)} of {len(caps)} cross-checked, median offset {median:.2f}s, largest {worst:.2f}s")
+            expect(median <= 0.35 and worst <= 0.8 and max(offsets) <= 0.3,
+                   f"no gross caption drift in the final MP4: {len(offsets)} mid-sentence captions within {worst:.2f}s of speech-to-text word times (median {median:.2f}s; coarse check)",
+                   f"captions drift from the voice in the final MP4: median {median:.2f}s, largest {worst:.2f}s, latest speech-to-text time {max(offsets):+.2f}s after its caption")
         except Exception as e:
             bad(f"caption sync cross-check could not run: {type(e).__name__}: {e}")
 
