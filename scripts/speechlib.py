@@ -122,7 +122,7 @@ def transcribe(path: Path, model_name: str = "base.en") -> str:
 
     if _whisper is None:
         _whisper = WhisperModel(model_name, device="cpu", compute_type="int8")
-    segments, _info = _whisper.transcribe(str(path), language="en", beam_size=5)
+    segments, _info = _whisper.transcribe(decode_audio(path, 16000), language="en", beam_size=5)
     return " ".join(s.text.strip() for s in segments).strip()
 
 
@@ -135,7 +135,7 @@ def whisper_word_times(path: Path, text: str, model_name: str = "base.en") -> li
 
     if _whisper is None:
         _whisper = WhisperModel(model_name, device="cpu", compute_type="int8")
-    segments, _info = _whisper.transcribe(str(path), language="en", beam_size=5, word_timestamps=True)
+    segments, _info = _whisper.transcribe(decode_audio(path, 16000), language="en", beam_size=5, word_timestamps=True)
     heard = []
     for seg in segments:
         for w in seg.words or []:
