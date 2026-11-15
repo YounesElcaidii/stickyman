@@ -1,7 +1,8 @@
 node_modules/
 out/
 .voices/
-public/shorts/*/voice/
+public/shorts/*/narration.wav
 public/shorts/*/timing.json
 public/sfx/
 __pycache__/
+deliver/

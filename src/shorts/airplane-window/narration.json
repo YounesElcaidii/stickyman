@@ -1,18 +1,34 @@
 {
   "title": "Why Do Airplane Windows Have a Tiny Hole?",
-  "voice": "en_US-ryan-high",
-  "lengthScale": 0.95,
-  "gapSeconds": 0.25,
-  "leadInSeconds": 0.3,
-  "tailSeconds": 1.6,
+  "voice": "en_US-ljspeech-high",
+  "voiceLicenseNote": "Piper voice trained on the LJ Speech dataset (public domain). The model card is saved next to the MP4 as voice-license.txt on every render.",
+  "lengthScale": 1.0,
+  "gapSeconds": 0.3,
+  "leadInSeconds": 0.25,
+  "tailSeconds": 1.3,
   "minSeconds": 25,
   "maxSeconds": 30,
+  "previewText": "Ever noticed this tiny hole in an airplane window? It's in the middle pane.",
   "lines": [
-    { "id": "hook", "text": "Ever noticed this tiny hole in an airplane window?" },
-    { "id": "panes", "text": "That window is actually three panes stacked together." },
-    { "id": "middle", "text": "And the hole is drilled in the middle pane, not the outer one." },
-    { "id": "pressure", "text": "Up high, cabin air is pressurized, but the air outside is thin." },
-    { "id": "gap", "text": "The hole lets cabin air reach the gap between the panes, so the outer pane takes most of the pressure difference." },
-    { "id": "backup", "text": "That keeps the middle pane fresh as a backup, and it lets moisture out so your window stays clear." }
+    {
+      "id": "hook",
+      "captions": ["Ever noticed", "this tiny hole", "in an airplane window?"]
+    },
+    {
+      "id": "middle",
+      "captions": ["It's in the middle pane."]
+    },
+    {
+      "id": "flow",
+      "captions": ["When the cabin is pressurized,", "air passes through the hole", "and fills the gap", "between the panes."]
+    },
+    {
+      "id": "inside",
+      "captions": ["That puts cabin pressure", "on the inside of the outer pane."]
+    },
+    {
+      "id": "difference",
+      "captions": ["The air outside", "is at a lower pressure,", "so the outer pane", "takes the pressure difference."]
+    }
   ]
 }

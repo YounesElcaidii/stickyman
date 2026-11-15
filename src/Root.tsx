@@ -4,7 +4,7 @@ import { AirplaneWindowShort, SHORT_ID } from "./shorts/airplane-window/Airplane
 import { loadTiming, type Timing } from "./lib/timing";
 
 const FPS = 30;
-const emptyTiming: Timing = { engine: "", voice: "", totalSeconds: 28, lines: [] };
+const emptyTiming: Timing = { engine: "", voice: "", totalSeconds: 27, audio: "", lines: [], captions: [] };
 
 /**
  * Every Short is one <Composition>. To add a new Short:
@@ -20,12 +20,12 @@ export const RemotionRoot: React.FC = () => (
       width={1080}
       height={1920}
       fps={FPS}
-      durationInFrames={28 * FPS}
+      durationInFrames={27 * FPS}
       defaultProps={{ timing: emptyTiming }}
       calculateMetadata={async () => {
         const timing = await loadTiming(SHORT_ID);
         return {
-          durationInFrames: Math.ceil(timing.totalSeconds * FPS),
+          durationInFrames: Math.round(timing.totalSeconds * FPS),
           props: { timing },
         };
       }}

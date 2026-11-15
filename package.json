@@ -7,7 +7,7 @@
     "voice": "python3 scripts/make_voice.py",
     "studio": "remotion studio",
     "render": "remotion render",
-    "check": "bash scripts/check_video.sh",
+    "check": "python3 scripts/check_video.py",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
