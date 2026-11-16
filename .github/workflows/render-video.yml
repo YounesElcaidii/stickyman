@@ -7,10 +7,11 @@ on:
         description: "Which Short to render (folder in src/shorts), or 'all'"
         type: choice
         options:
+          - mcflurry-spoon
           - cheese-allergy
           - airplane-window
           - all
-        default: "cheese-allergy"
+        default: "mcflurry-spoon"
         required: true
   # Also renders on pull requests that touch the videos, so each MP4 can be checked before merging.
   pull_request:
@@ -73,6 +74,8 @@ jobs:
           print(f"COMPOSITION={cfg['composition']}")
           print(f"OUTPUT={cfg['outputName']}")
           print(f"ARTIFACT={cfg['artifactName']}")
+          # Shorts with 3D scenes name the WebGL renderer the headless browser must use.
+          print(f"GL_FLAG={'--gl=' + cfg['gl'] if cfg.get('gl') else ''}")
           PY
 
       - name: Set up Node.js
@@ -119,10 +122,15 @@ jobs:
       - name: Install headless browser for Remotion
         run: npx remotion browser ensure
 
+      # 3D Shorts only: a few half-size stills first, to catch black frames or WebGL failures
+      # and to measure that the moving parts really connect, before spending minutes on the full render.
+      - name: Short 3D test (WebGL stills)
+        run: python3 scripts/smoke_test_3d.py "$SHORT"
+
       - name: Render 1080x1920 video
         run: |
           mkdir -p out
-          npx remotion render "$COMPOSITION" "out/$OUTPUT.mp4" --concurrency=2
+          npx remotion render "$COMPOSITION" "out/$OUTPUT.mp4" --concurrency=2 $GL_FLAG
 
       - name: Check the delivery file (size, streams, speech, clipping, frames)
         run: python3 scripts/check_video.py "out/$OUTPUT.mp4" "$SHORT"
@@ -144,6 +152,7 @@ jobs:
           mkdir -p deliver
           cp "out/$OUTPUT.mp4" out/voice-preview.wav out/voice-license.txt out/check-report.md deliver/
           cp -r out/frames deliver/frames
+          if [ -d out/3d-test ]; then cp -r out/3d-test deliver/3d-test; fi
 
       - name: Upload MP4
         uses: actions/upload-artifact@v4
@@ -164,5 +173,6 @@ jobs:
             out/voice-license.txt
             out/check-report.md
             out/frames
+            out/3d-test
           if-no-files-found: ignore
           retention-days: 7

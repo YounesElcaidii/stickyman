@@ -9,6 +9,7 @@ entirely on GitHub Actions — no PC, no manual editing, no voice recording, no 
 | --- | --- | --- | --- | --- |
 | Why Do Airplane Windows Have a Tiny Hole? | `airplane-window` | `AirplaneWindow` | `stickman-short-v2` | `airplane-window-short-v2.mp4` |
 | When a Cheese Prank Turned Fatal | `cheese-allergy` | `CheeseAllergy` | `stickman-cheese-allergy` | `cheese-allergy-short.mp4` |
+| Why Did McFlurry Spoons Have a Square Hole? (3D) | `mcflurry-spoon` | `McFlurrySpoon` | `stickman-mcflurry-spoon` | `mcflurry-spoon-short.mp4` |
 
 ## Get a video from your phone
 
@@ -40,6 +41,15 @@ downscaled and re-encoded.
   exactly 1080 × 1920 and 30 fps with AAC audio, lasts the length set in `narration.json`, does not clip, has every narration
   sentence audible at the right time and clearly above the sound effects, and speech-to-text of
   the final file gives back the script, with caption timing cross-checked against it.
+
+## 3D Shorts
+
+`mcflurry-spoon` is real 3D: Three.js through `@remotion/three`, with original models built in code
+(`src/shorts/mcflurry-spoon/Scene3D.tsx`) and every camera move and part motion a pure function of
+the frame (`rig.ts`). The GitHub runner has no GPU, so the Short's `narration.json` sets
+`"gl": "swangle"` (software WebGL). Before the full render, `scripts/smoke_test_3d.py` renders a few
+half-size stills, fails on black or blank frames, and measures from pixels that the mixer shaft
+really ends up inside the spoon's socket. Its stills are in the artifact under `3d-test/`.
 
 ## Voice and license
 

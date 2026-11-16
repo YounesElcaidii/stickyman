@@ -185,19 +185,22 @@ def main() -> int:
     min_scale, max_scale = float(cfg.get("minLengthScale", 0.88)), float(cfg.get("maxLengthScale", 1.15))
     lo, hi = float(cfg["minSeconds"]), float(cfg["maxSeconds"])
     n_gaps = len(cfg["lines"]) - 1
+    # A line can ask for its own pause ("pauseAfter"), e.g. a beat after a question.
+    own = [float(l.get("pauseAfter", base_gap)) for l in cfg["lines"][:-1]]
+    extra = sum(own) - base_gap * n_gaps
     clips: list[np.ndarray] = []
     total, gap, tail = 0.0, base_gap, base_tail
     for attempt in range(4):
         clips = [synth(args.engine, onnx, l["spoken"], work / f"{l['id']}.wav", scale) for l in cfg["lines"]]
         speech = sum(len(c) for c in clips) / RATE
         gap, tail = base_gap, base_tail
-        total = lead + speech + gap * n_gaps + tail
+        total = lead + speech + gap * n_gaps + extra + tail
         short = (lo + 1.0) - total
         if short > 0:
             add = min(short, (max_gap - base_gap) * n_gaps)
             gap += add / n_gaps
             tail += min(short - add, max_tail - base_tail)
-            total = lead + speech + gap * n_gaps + tail
+            total = lead + speech + gap * n_gaps + extra + tail
         log(f"[voice] attempt {attempt + 1}: speed scale {scale:.3f} -> {speech:.2f}s of speech, "
             f"{gap:.2f}s pauses, {tail:.2f}s ending = {total:.2f}s total")
         if lo + 0.9 <= total <= hi - 0.7:
@@ -231,7 +234,7 @@ def main() -> int:
                              "start": round(t + first[1], 3), "end": round(t + last[2], 3)})
             i += n
         lines.append({"id": line["id"], "text": line["text"], "spoken": line["spoken"], "start": round(t, 3), "duration": round(dur, 3)})
-        t += dur + gap
+        t += dur + (own[len(lines) - 1] + gap - base_gap if len(lines) <= n_gaps else 0.0)
 
     # Each caption stays up until the next one starts (or a beat after the sentence ends).
     for a, b in zip(captions, captions[1:]):

@@ -58,7 +58,37 @@ def ding() -> list[float]:
     return out
 
 
+def click() -> list[float]:
+    """One crisp mechanical click: a sharp tick followed by a short, damped knock."""
+    rnd = random.Random(3)
+    n = int(RATE * 0.09)
+    out = []
+    for i in range(n):
+        t = i / RATE
+        tick = rnd.uniform(-1, 1) * math.exp(-t * 900)
+        knock = math.sin(2 * math.pi * 1900 * t) * math.exp(-t * 160) * 0.7
+        body = math.sin(2 * math.pi * 420 * t) * math.exp(-t * 90) * 0.5
+        out.append(tick + knock + body)
+    return out
+
+
+def whir() -> list[float]:
+    """Soft mixer motor: a low hum with a little air noise, steady enough to sit under a voice."""
+    rnd = random.Random(11)
+    n = int(RATE * 12)
+    out, lp = [], 0.0
+    for i in range(n):
+        t = i / RATE
+        wobble = 1 + 0.015 * math.sin(2 * math.pi * 5.5 * t)
+        hum = sum(math.sin(2 * math.pi * 92 * h * wobble * t) / (h ** 1.3) for h in (1, 2, 3, 4, 6))
+        lp += 0.12 * (rnd.uniform(-1, 1) - lp)
+        out.append(hum * 0.5 + lp * 1.4)
+    return out
+
+
 if __name__ == "__main__":
+    write("click.wav", click())
+    write("whir.wav", whir())
     write("whoosh.wav", whoosh())
     write("pop.wav", pop())
     write("ding.wav", ding())
