@@ -1,0 +1,53 @@
+{
+  "title": "Why Did McFlurry Spoons Have a Square Hole?",
+  "composition": "McFlurrySpoon",
+  "outputName": "mcflurry-spoon-short",
+  "artifactName": "stickman-mcflurry-spoon",
+  "gl": "swangle",
+  "smokeTest": {
+    "composition": "McFlurrySpoonTest",
+    "pictures": { "hook": 60, "connection": 170, "mixing": 380, "ending": 640 },
+    "apartFrame": 132,
+    "connectedFrame": 170
+  },
+  "voice": "en_US-ljspeech-high",
+  "voiceLicenseNote": "Piper voice trained on the LJ Speech dataset (public domain). The model card is saved next to the MP4 as voice-license.txt on every render.",
+  "lengthScale": 1.04,
+  "minLengthScale": 0.96,
+  "maxLengthScale": 1.12,
+  "gapSeconds": 0.5,
+  "maxGapSeconds": 0.85,
+  "leadInSeconds": 0.12,
+  "tailSeconds": 1.7,
+  "maxTailSeconds": 2.3,
+  "minSeconds": 22,
+  "maxSeconds": 27,
+  "pronunciations": {
+    "mcflurry": "M AH K F L ER IY"
+  },
+  "previewText": "Ever wonder why the old McFlurry spoon had a square hole? That hole snapped onto the mixer.",
+  "lines": [
+    {
+      "id": "hook",
+      "pauseAfter": 0.7,
+      "captions": ["Ever wonder why", "the old McFlurry spoon", "had a square hole?"]
+    },
+    {
+      "id": "snapped",
+      "captions": ["That hole", "snapped onto the mixer."]
+    },
+    {
+      "id": "spun",
+      "pauseAfter": 1.5,
+      "captions": ["When the machine spun,", "the spoon spun with it,", "stirring the toppings", "through the soft serve."]
+    },
+    {
+      "id": "same",
+      "captions": ["Then the mixer disconnected,", "and you got the same spoon", "with your dessert."]
+    },
+    {
+      "id": "both",
+      "captions": ["One spoon", "did both jobs."]
+    }
+  ]
+}
