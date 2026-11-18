@@ -52,12 +52,20 @@ the frame (`rig.ts`). The GitHub runner has no GPU, so the Short's `narration.js
 half-size stills, fails on black or blank frames, and measures from pixels that the mixer shaft
 really ends up inside the spoon's socket. Its stills are in the artifact under `3d-test/`.
 
-## Voice and license
+## Voices and licenses
 
-The voice is `en_US-ljspeech-high`, a Piper voice trained on the public-domain LJ Speech dataset.
-Its model card is downloaded on every render and shipped next to the MP4 as `voice-license.txt`.
-To try another voice, change `"voice"` in `narration.json` — check its model card first, because
-several Piper voices are trained on non-commercial datasets.
+Two free neural voice engines are supported; a Short names its engine in `narration.json`.
+
+- **Piper** (default): `en_US-ljspeech-high` for the first three Shorts. Each Piper voice's model
+  card is downloaded on every render and shipped as `voice-license.txt`. Check a voice's card
+  before using it: several Piper voices are trained on non-commercial datasets.
+- **Kokoro-82M v1.0** (`"engine": "kokoro"`), used by `someone-at-the-door`: model weights under the
+  Apache License 2.0, run through `kokoro-onnx` (MIT) on the CPU. Narrator `am_michael`; Alex and
+  the hallway voice `am_puck`, with light phone and door effects. Lines can name their own voice,
+  effect, speed and pause.
+
+Neither engine needs an account or key. There is no fallback voice: if a voice cannot be loaded or
+a speech-to-text pass cannot understand it, the run fails with the exact error.
 
 ## Making the next Short
 

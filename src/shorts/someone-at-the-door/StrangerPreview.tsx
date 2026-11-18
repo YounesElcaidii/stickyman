@@ -7,7 +7,7 @@ import { Hallway, PEEPHOLE_CAMERA, type StrangerAct } from "./Hallway";
 
 /**
  * Five-second preview of the stranger through the peephole: perfectly still at first, then a slow
- * blink, a small head tilt, and a hand coming up toward the door. Pure function of the frame.
+ * blink, a slow head tilt, and a hand reaching down toward the door handle. Pure function of the frame.
  */
 export const STRANGER_PREVIEW_FRAMES = 150;
 
@@ -16,14 +16,14 @@ const smooth = (x: number) => {
   return t * t * (3 - 2 * t);
 };
 
-/** The stranger's performance, `f` frames after the peephole shot begins. */
-export const strangerActAt = (f: number): StrangerAct => {
-  const blinkAt = 44;
+/** The stranger's performance, `f` frames after the peephole shot begins; the hand moves at `reachFrom`. */
+export const strangerActAt = (f: number, reachFrom = 100): StrangerAct => {
+  const blinkAt = 24;
   const blink = f < blinkAt ? 0 : f < blinkAt + 4 ? (f - blinkAt) / 4 : f < blinkAt + 7 ? 1 : Math.max(0, 1 - (f - blinkAt - 7) / 6);
   return {
     blink,
-    tilt: -0.05 - 0.27 * smooth((f - 62) / 34),
-    reach: smooth((f - 92) / 44),
+    tilt: -0.03 - 0.2 * smooth((f - 34) / 70), // slow
+    reach: smooth((f - reachFrom) / 42),
     breathe: Math.sin(f / 14),
   };
 };

@@ -127,7 +127,7 @@ def main() -> int:
            f"only {room:.2f}s after the last sentence - it may be cut off")
 
     # --- narration source -----------------------------------------------------------------
-    is_dev = timing.get("engine") != "piper"
+    is_dev = timing.get("engine") not in ("piper", "kokoro")
     if is_dev and not args.allow_dev_voice:
         bad(f"narration engine is '{timing.get('engine')}' - a development placeholder, not the real voice")
     else:

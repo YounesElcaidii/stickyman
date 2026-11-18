@@ -9,6 +9,7 @@ import type { Timing } from "../../lib/timing";
 import { Apartment } from "./Apartment";
 import { Arm } from "./Hands";
 import { Hallway, PEEPHOLE_CAMERA } from "./Hallway";
+import { PeepholeMask, strangerActAt } from "./StrangerPreview";
 import { Phone, phoneGrip, type PhoneScreen } from "./Phone";
 import { marksFrom, stateAt, type Marks } from "./rig";
 
@@ -114,13 +115,13 @@ const ChoiceCard: React.FC<{ show: number; speakAt: number; silentAt: number; fr
   );
   return (
     <AbsoluteFill>
-      <AbsoluteFill style={{ background: "rgba(10,8,12,0.62)", opacity: show }} />
+      <AbsoluteFill style={{ background: "linear-gradient(rgba(10,8,12,0.78) 0%, rgba(10,8,12,0.7) 48%, rgba(10,8,12,0.12) 58%, rgba(10,8,12,0) 100%)", opacity: show }} />
       <div
         style={{
           position: "absolute",
           left: 60,
           right: 190,
-          top: 250,
+          top: 240,
           textAlign: "center",
           fontFamily: FONT,
           fontWeight: 700,
@@ -132,8 +133,8 @@ const ChoiceCard: React.FC<{ show: number; speakAt: number; silentAt: number; fr
       >
         What would you do?
       </div>
-      {button("SPEAK", speakAt, 460, "#ffd23f", "#16110f")}
-      {button("STAY SILENT", silentAt, 730, "#f4f1ea", "#16110f")}
+      {button("SPEAK", speakAt, 430, "#ffd23f", "#16110f")}
+      {button("STAY SILENT", silentAt, 670, "#f4f1ea", "#16110f")}
     </AbsoluteFill>
   );
 };
@@ -166,7 +167,7 @@ export const SomeoneAtTheDoor: React.FC<{ timing: Timing }> = ({ timing }) => {
           {s.inPeephole ? (
             <>
               <Camera eye={PEEPHOLE_CAMERA.eye} look={PEEPHOLE_CAMERA.look} fov={PEEPHOLE_CAMERA.fov} />
-              <Hallway frame={frame} act={{ blink: 0, tilt: -0.1, reach: 0, breathe: Math.sin(frame / 14) }} />
+              <Hallway frame={frame} act={strangerActAt(s.peepFrame, m.peepOut - m.peepIn - 44)} />
             </>
           ) : (
             <>
@@ -178,16 +179,7 @@ export const SomeoneAtTheDoor: React.FC<{ timing: Timing }> = ({ timing }) => {
             </>
           )}
         </ThreeCanvas>
-        {s.inPeephole && (
-          <AbsoluteFill
-            style={{
-              background:
-                "radial-gradient(circle 470px at 50% 50%, rgba(0,0,0,0) 0, rgba(0,0,0,0) 76%, rgba(0,0,0,0.55) 90%, #050506 97%, #050506 100%)",
-            }}
-          >
-            <div style={{ position: "absolute", left: 540 - 474, top: 960 - 474, width: 948, height: 948, borderRadius: "50%", border: "14px solid #1c1a1d", boxSizing: "border-box" }} />
-          </AbsoluteFill>
-        )}
+        {s.inPeephole && <PeepholeMask />}
       </AbsoluteFill>
       {s.inPeephole && <AbsoluteFill style={{ background: "#050506", top: 1340 }} />}
 

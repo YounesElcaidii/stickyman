@@ -26,6 +26,7 @@ export type Marks = {
   ring: number; // the phone starts ringing
   liftFrom: number; // ...and after a pause the phone comes up
   answered: number;
+  recoilAt: number; // "...twenty minutes away"
   peepIn: number; // cut to the peephole view
   peepOut: number; // cut back inside
   buzz: number;
@@ -38,7 +39,7 @@ export const marksFrom = (timing: Timing, fps: number, durationInFrames: number)
   const line: Record<string, Span> = {};
   for (const l of timing.lines) line[l.id] = { s: Math.round(l.start * fps), e: Math.round((l.start + l.duration) * fps) };
   const k = line.text.e + 9;
-  const ring = line.walk.e + 12;
+  const ring = line.walk.e + 13; // the fingers have closed and the wrist has begun to turn
   return {
     line,
     knocks: [k, k + 10, k + 20],
@@ -46,12 +47,13 @@ export const marksFrom = (timing: Timing, fps: number, durationInFrames: number)
     walkFrom: line.knocks.e + 8,
     contact: line.walk.e + 2,
     ring,
-    liftFrom: ring + 17,
+    liftFrom: ring + 18,
     answered: line.call.s - 3,
+    recoilAt: Math.round((line.call.s + line.call.e) / 2) + 2,
     peepIn: line.peephole.e + 2,
-    peepOut: line.still.e + 9,
-    buzz: line.still.e + 11, // the buzz lands in the pause, before the narrator speaks again
-    handleTurns: line.locked.e + 16,
+    peepOut: line.still.e + 24,
+    buzz: line.still.e + 26, // the buzz lands in the pause, before the narrator speaks again
+    handleTurns: line.locked.e + 14,
     choiceAt: line.choice.s,
     end: durationInFrames,
   };
@@ -72,6 +74,7 @@ const vmix = (a: THREE.Vector3, b: THREE.Vector3, t: number) => a.clone().lerp(b
 
 const SEAT = v(0.35, 1.2, 3.75);
 const AT_DOOR = v(0.12, 1.6, 0.52);
+const GRIP_CLOSE = v(0.15, 1.52, 0.46);
 
 // --- hand poses ----------------------------------------------------------------------------------
 const H = DOOR.handle;
@@ -111,6 +114,12 @@ const handGrip: HandPose = {
   spread: 0.02,
   thumbYaw: 0.55,
 };
+const handTurn: HandPose = {
+  // the same grip, wrist rolled and dropped as the lever starts to go down
+  ...handGrip,
+  wrist: v(H.x + 0.012, H.y + 0.024, H.z + 0.08),
+  rotation: q(-0.16, 0.03, -0.24),
+};
 const handRecoil: HandPose = {
   wrist: v(H.x + 0.03, H.y + 0.11, H.z + 0.21),
   rotation: q(-0.75, 0.1, -0.25),
@@ -129,7 +138,7 @@ const handHover: HandPose = {
 };
 const handGuard = (eye: THREE.Vector3): HandPose => ({
   // pulled back toward the chest in a loose fist
-  wrist: v(eye.x + 0.21, eye.y - 0.5, eye.z - 0.2),
+  wrist: v(eye.x + 0.25, eye.y - 0.56, eye.z - 0.14),
   rotation: q(-0.7, 0.2, -0.95),
   fingers: [1.15, 1.05, 0.65],
   thumb: [0.75, 0.5],
@@ -149,7 +158,8 @@ type PhonePose = { offset: THREE.Vector3; rot: THREE.Quaternion };
 const P_READ: PhonePose = { offset: v(0.0, -0.09, -0.2), rot: q(-0.36, 0, 0) };
 const P_LOWERED: PhonePose = { offset: v(-0.075, -0.215, -0.25), rot: q(-0.75, 0.2, 0.1) };
 const P_SIDE: PhonePose = { offset: v(-0.2, -0.62, -0.1), rot: q(-0.95, 0.5, 0.35) };
-const P_CALL: PhonePose = { offset: v(-0.035, -0.15, -0.2), rot: q(-0.6, 0.12, 0.03) };
+const P_PEEK: PhonePose = { offset: v(-0.12, -0.33, -0.25), rot: q(-0.9, 0.3, 0.16) }; // buzzing at the hip, just in view
+const P_CALL: PhonePose = { offset: v(-0.03, -0.14, -0.175), rot: q(-0.6, 0.1, 0.03) };
 const P_ASIDE: PhonePose = { offset: v(-0.105, -0.3, -0.23), rot: q(-0.85, 0.3, 0.1) };
 const P_MESSAGE: PhonePose = { offset: v(-0.01, -0.135, -0.19), rot: q(-0.58, 0.03, 0.0) };
 const pmix = (a: PhonePose, b: PhonePose, t: number): PhonePose => ({ offset: a.offset.clone().lerp(b.offset, t), rot: a.rot.clone().slerp(b.rot, t) });
@@ -164,14 +174,19 @@ export const stateAt = (f: number, m: Marks) => {
   const eyeKeys: Key<THREE.Vector3>[] = [
     { f: m.standAt, v: SEAT },
     { f: m.walkFrom + 4, v: v(0.33, 1.6, 3.4) },
-    { f: m.contact - 8, v: AT_DOOR },
+    { f: m.contact - 10, v: AT_DOOR },
+    { f: m.contact + 4, v: GRIP_CLOSE }, // lean in as the fingers close
+    { f: m.ring + 6, v: GRIP_CLOSE },
+    { f: m.liftFrom + 6, v: AT_DOOR },
     { f: L.hallway.s, v: AT_DOOR },
     { f: L.openup.e, v: v(0.1, 1.6, 0.6) },
     { f: L.peephole.s, v: v(0.08, 1.6, 0.58) },
     { f: L.peephole.e - 3, v: v(0.0, 1.535, 0.27) },
     { f: m.peepOut - 1, v: v(0.0, 1.53, 0.25) },
     { f: m.peepOut, v: v(0.12, 1.6, 0.56), cut: true },
-    { f: m.end, v: v(0.13, 1.59, 0.5) },
+    { f: m.handleTurns - 6, v: v(0.12, 1.6, 0.56) },
+    { f: m.handleTurns + 22, v: v(0.17, 1.47, 0.47) }, // down and in: a close look at the handle
+    { f: m.end, v: v(0.18, 1.45, 0.44) },
   ];
   const eye = track(eyeKeys, f, vmix);
   const walking = clamp01((f - m.walkFrom) / 8) * (1 - smooth((f - (m.contact - 16)) / 10));
@@ -179,6 +194,10 @@ export const stateAt = (f: number, m: Marks) => {
   eye.y += Math.abs(Math.sin(step * Math.PI)) * 0.024 * walking + Math.sin(f / 19) * 0.003;
   eye.x += Math.sin(step * Math.PI) * 0.014 * walking;
   if (f >= m.ring) eye.y += Math.exp(-(f - m.ring) / 5) * 0.012; // a start when the phone rings
+  // a recoil when Alex says he is still twenty minutes away
+  const jolt = f >= m.recoilAt ? Math.exp(-(f - m.recoilAt) / 9) * (1 - Math.exp(-(f - m.recoilAt) / 1.5)) : 0;
+  eye.z += 0.075 * jolt;
+  eye.y += 0.018 * jolt;
   if (f >= L.openup.s && f < m.peepIn) eye.z += Math.exp(-(f - L.openup.s) / 9) * 0.02; // lean back from the voice
 
   // --- the phone and the hand that holds it
@@ -187,7 +206,9 @@ export const stateAt = (f: number, m: Marks) => {
     { f: m.knocks[0] + 8, v: P_LOWERED },
     { f: m.standAt, v: P_LOWERED },
     { f: m.walkFrom + 10, v: P_SIDE },
-    { f: m.liftFrom, v: P_SIDE },
+    { f: m.ring, v: P_SIDE },
+    { f: m.ring + 8, v: P_PEEK },
+    { f: m.liftFrom, v: P_PEEK },
     { f: m.liftFrom + 20, v: P_CALL },
     { f: L.call.e + 4, v: P_CALL },
     { f: L.freezes.s + 12, v: P_ASIDE },
@@ -202,7 +223,8 @@ export const stateAt = (f: number, m: Marks) => {
   const pp = track(phoneKeys, f, pmix);
   const ringing = f >= m.ring && f < m.answered;
   const buzzing = ringing || (f >= m.buzz && f < m.buzz + 14);
-  const shake = buzzing ? Math.sin(f * 2.6) * 0.0016 : 0;
+  const preLift = ringing && f < m.liftFrom + 6;
+  const shake = buzzing ? Math.sin(f * 2.6) * (preLift ? 0.0045 : 0.0016) + (f >= m.recoilAt ? jolt * 0.004 : 0) : 0;
   const phonePos = eye.clone().add(pp.offset).add(v(shake, 0, 0));
   const phoneRot = pp.rot.clone().multiply(q(0, 0, shake * 5));
 
@@ -213,7 +235,9 @@ export const stateAt = (f: number, m: Marks) => {
     { f: m.knocks[0] + 7, v: v(0.08, 1.3, 0) }, // up at the door
     { f: m.walkFrom, v: v(0.1, 1.25, 0) },
     { f: m.contact - 22, v: handle },
-    { f: m.liftFrom + 2, v: handle },
+    { f: m.ring + 1, v: handle },
+    { f: m.ring + 10, v: v(0.08, 0.98, 0.14) }, // a glance down at the buzzing phone
+    { f: m.liftFrom + 2, v: v(0.08, 0.98, 0.14) },
     { f: m.liftFrom + 24, v: v(0.15, 1.03, 0.02) }, // phone and handle together
     { f: L.call.e, v: v(0.15, 1.03, 0.02) },
     { f: L.freezes.s + 10, v: v(0.25, 1.06, 0) }, // back to the hand
@@ -225,8 +249,8 @@ export const stateAt = (f: number, m: Marks) => {
     { f: m.peepOut, v: v(0.14, 1.2, 0.1), cut: true },
     { f: m.buzz + 18, v: v(0.11, 1.15, 0.12) }, // the new message
     { f: L.locked.e + 6, v: v(0.11, 1.15, 0.12) },
-    { f: m.handleTurns + 12, v: v(0.26, 1.07, 0) }, // ...and back to the handle
-    { f: m.end, v: v(0.27, 1.05, 0) },
+    { f: m.handleTurns + 4, v: v(0.24, 1.16, 0) }, // ...and back to the handle,
+    { f: m.end, v: v(0.24, 1.17, 0) }, // held below the choice buttons
   ];
   const look = track(lookKeys, f, vmix);
 
@@ -238,8 +262,9 @@ export const stateAt = (f: number, m: Marks) => {
     { f: m.contact - 20, v: handRising(eye) },
     { f: m.contact - 9, v: handOver },
     { f: m.contact, v: handGrip },
-    { f: m.ring, v: handGrip },
-    { f: m.ring + 5, v: handRecoil }, // recoil from the ring
+    { f: m.ring, v: handTurn }, // the wrist turns the lever...
+    { f: m.ring + 7, v: handTurn }, // ...and stops dead when the phone rings
+    { f: m.ring + 12, v: handRecoil },
     { f: L.call.s, v: handRecoil },
     { f: L.call.e, v: handHover }, // reaching again...
     { f: L.openup.s, v: handHover }, // ...and frozen in mid-air
@@ -252,15 +277,17 @@ export const stateAt = (f: number, m: Marks) => {
   ];
   const right = track(handKeys, f, mixPose);
   // a flinch when the phone rings, and a shiver when the hand freezes
-  const flinch = f >= m.ring ? Math.exp(-(f - m.ring) / 4) * Math.sin((f - m.ring) * 1.4) * 0.006 : 0;
+  const flinch = f >= m.ring + 7 ? Math.exp(-(f - m.ring - 7) / 4) * Math.sin((f - m.ring - 7) * 1.4) * 0.005 : 0;
   const shiver = f >= L.freezes.s && f < L.freezes.s + 14 ? Math.sin(f * 2.9) * 0.0022 * (1 - (f - L.freezes.s) / 14) : 0;
   right.wrist.add(v(shiver, flinch, flinch));
 
   // --- the door
   const knock = Math.max(0, ...m.knocks.map((k) => (f >= k ? 1 - (f - k) / 7 : 0)));
   const voice = f >= L.openup.s && f < L.openup.e ? 0.3 + 0.2 * Math.sin(f * 1.3) : 0;
-  const gripPress = 0.05 * smooth((f - (m.contact - 4)) / 6) * (1 - smooth((f - m.ring) / 4));
-  const creep = 0.42 * smooth((f - m.handleTurns) / 60);
+  // your own turn of the lever: it goes down a little, stops with the hand, and springs back on the recoil
+  const gripPress = (0.03 * smooth((f - (m.contact - 4)) / 5) + 0.17 * smooth((f - m.contact) / (m.ring - m.contact))) * (1 - smooth((f - m.ring - 7) / 4));
+  // the last turn is not yours: slow, steady, all the way down
+  const creep = 0.62 * clamp01((f - m.handleTurns) / 95) ** 0.9;
 
   const screen: Screen = f < m.ring ? "text" : f < m.answered ? "ringing" : f < m.buzz ? "call" : "locked";
   return {
@@ -279,5 +306,6 @@ export const stateAt = (f: number, m: Marks) => {
     shoulderR: v(eye.x + 0.2, eye.y - 0.2, eye.z + 0.04),
     shoulderL: v(eye.x - 0.2, eye.y - 0.2, eye.z + 0.04),
     choice: clamp01((f - m.choiceAt) / 10),
+    peepFrame: f - m.peepIn,
   };
 };

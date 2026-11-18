@@ -5,7 +5,7 @@ import { Toon, boxGeo, capsuleGeo, cylGeo, sphereGeo, usePainted } from "../../t
 
 /**
  * The building hallway on the other side of the front door (z < 0), as seen through the peephole,
- * and the stranger: an original character - Alex's hair, face and mustard jacket, but a shade too pale and smiling a little too wide.
+ * and the stranger: an original character - Alex's hair, face and mustard jacket, but a shade too pale, with a restrained, unreadable expression.
  */
 
 export const ALEX = {
@@ -20,7 +20,7 @@ const STRANGER_SKIN = "#e6cdb6"; // Alex's face, a shade too pale
 export type StrangerAct = {
   blink: number; // 0 open .. 1 closed
   tilt: number; // head tilt, radians
-  reach: number; // 0 arm at the side .. 1 hand stretched toward the door
+  reach: number; // 0 arm at the side .. 1 hand reaching for the door handle
   breathe: number; // tiny chest movement
 };
 
@@ -28,7 +28,6 @@ const v3 = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 const eul = (x: number, y: number, z: number) => new THREE.Quaternion().setFromEuler(new THREE.Euler(x, y, z, "YXZ"));
 
 const Face: React.FC<{ blink: number }> = ({ blink }) => {
-  const smile = useMemo(() => new THREE.TorusGeometry(0.058, 0.0068, 8, 28, Math.PI * 0.8), []);
   const hairCap = useMemo(() => new THREE.SphereGeometry(0.162, 28, 16, 0, Math.PI * 2, 0, Math.PI * 0.56), []);
   return (
     <group>
@@ -67,17 +66,27 @@ const Face: React.FC<{ blink: number }> = ({ blink }) => {
           </mesh>
         </group>
       ))}
-      {/* nose and a smile that is a little too wide */}
+      {/* nose and a restrained, closed mouth with only a trace of a smile */}
       <Toon geometry={sphereGeo(0.017)} color="#d9b89c" position={[0, -0.018, 0.139]} scale={[1, 1.2, 1]} outline={0.004} />
-      <mesh geometry={smile} position={[0, -0.028, 0.129]} rotation={[0.42, 0, -Math.PI / 2 - (Math.PI * 0.8) / 2]}>
-        <meshBasicMaterial color="#5a1f1a" />
-      </mesh>
+      {/* a closed, level mouth with the corners barely lifted */}
+      <group position={[0, -0.066, 0.118]} rotation={[0.42, 0, 0]}>
+        <mesh>
+          <boxGeometry args={[0.05, 0.009, 0.02]} />
+          <meshBasicMaterial color="#5a1f1a" />
+        </mesh>
+        {[-1, 1].map((sd) => (
+          <mesh key={sd} position={[sd * 0.029, 0.003, -0.002]} rotation={[0, 0, sd * 0.45]}>
+            <boxGeometry args={[0.014, 0.008, 0.02]} />
+            <meshBasicMaterial color="#5a1f1a" />
+          </mesh>
+        ))}
+      </group>
     </group>
   );
 };
 
 const Stranger: React.FC<{ act: StrangerAct }> = ({ act }) => {
-  const z = -1.28;
+  const z = -1.3;
   const chest = 0.006 * act.breathe;
   const shoulderR = v3(0.3, 1.63 + chest, z);
   const shoulderL = v3(-0.3, 1.63 + chest, z);
@@ -88,13 +97,13 @@ const Stranger: React.FC<{ act: StrangerAct }> = ({ act }) => {
     thumb: [0.2, 0.2],
   });
   const reaching: HandPose = {
-    // palm down, fingers toward the door, opening as it comes up
-    wrist: v3(0.13, 1.44, z + 0.5),
-    rotation: eul(-0.25, Math.PI, 0.1),
-    fingers: [0.16, 0.14, 0.1],
-    thumb: [0.05, 0.1],
-    spread: 0.12,
-    thumbYaw: 1.1,
+    // down and forward toward the door handle, palm down, fingers starting to close
+    wrist: v3(0.27, 1.33, z + 0.44),
+    rotation: eul(0.5, Math.PI, 0.06),
+    fingers: [0.5, 0.42, 0.26],
+    thumb: [0.35, 0.3],
+    spread: 0.06,
+    thumbYaw: 0.9,
   };
   const right = mixPose(hang(1), reaching, act.reach);
   return (
@@ -185,4 +194,4 @@ export const Hallway: React.FC<{ frame: number; act: StrangerAct }> = ({ frame, 
   );
 };
 
-export const PEEPHOLE_CAMERA = { eye: new THREE.Vector3(0, 1.52, -0.06), look: new THREE.Vector3(0.02, 1.6, -3), fov: 100 };
+export const PEEPHOLE_CAMERA = { eye: new THREE.Vector3(0, 1.52, -0.06), look: new THREE.Vector3(0.06, 1.62, -3), fov: 100 };

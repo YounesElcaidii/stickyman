@@ -81,8 +81,34 @@ def save_model_card(voice: str) -> None:
     log(f"[voice] model card saved to {target}:\n{card.strip()}\n")
 
 
-def synth(engine: str, onnx: Path | None, text: str, out: Path, scale: float) -> np.ndarray:
+_kokoro = None
+
+
+def synth_kokoro(voice: str, text: str, scale: float) -> np.ndarray:
+    """Kokoro-82M (Apache 2.0 weights) through kokoro-onnx (MIT): expressive, CPU only, no key."""
+    global _kokoro
+    if _kokoro is None:
+        try:
+            from voice_auditions import kokoro
+
+            _kokoro = kokoro()
+        except Exception as e:
+            die(f"could not load the Kokoro voice model: {type(e).__name__}: {e}")
+    try:
+        samples, rate = _kokoro.create(text, voice=voice, speed=1.0 / scale, lang="en-us")
+    except Exception as e:
+        die(f"Kokoro produced no audio for {text!r} with voice '{voice}': {type(e).__name__}: {e}")
+    if len(samples) < rate * 0.1:
+        die(f"Kokoro produced no audio for {text!r} with voice '{voice}'")
+    n = int(round(len(samples) * RATE / rate))
+    samples = np.interp(np.linspace(0, len(samples) - 1, n), np.arange(len(samples)), samples).astype(np.float32)
+    return trim(samples)
+
+
+def synth(engine: str, onnx: Path | None, text: str, out: Path, scale: float, voice: str = "") -> np.ndarray:
     out.parent.mkdir(parents=True, exist_ok=True)
+    if engine == "kokoro":
+        return synth_kokoro(voice, text, scale)
     if engine == "piper":
         r = run(
             [sys.executable, "-m", "piper", "-m", str(onnx), "-f", str(out),
@@ -105,12 +131,10 @@ def synth(engine: str, onnx: Path | None, text: str, out: Path, scale: float) ->
 
 # Voice effects. Each keeps the clip's length, so caption timing measured on the clean voice still holds.
 EFFECTS = {
-    # a caller on the phone: slightly brighter and younger, narrow telephone band
-    "phone": "asetrate=22050*1.05,aresample=22050,atempo=0.952381,highpass=f=320,lowpass=f=3300,"
-             "acompressor=threshold=0.1:ratio=3:makeup=2",
-    # a voice on the other side of a closed door: a touch lower, muffled, a little hallway echo
-    "door": "asetrate=22050*0.96,aresample=22050,atempo=1.041667,highpass=f=110,lowpass=f=1100,"
-            "aecho=0.7:0.5:38:0.22,volume=1.6",
+    # a caller on the phone: a narrow telephone band, light compression - every word stays clear
+    "phone": "highpass=f=260,lowpass=f=3600,acompressor=threshold=0.2:ratio=2:makeup=1.3",
+    # a voice on the other side of a closed door: slightly dulled, a touch of hallway echo
+    "door": "highpass=f=90,lowpass=f=2600,aecho=0.8:0.4:28:0.14",
 }
 
 
@@ -170,13 +194,15 @@ def check_speech(label: str, samples: np.ndarray, wav: Path, expected: str, asr:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("short")
-    ap.add_argument("--engine", default="piper", choices=["piper", "espeak-dev"])
+    ap.add_argument("--engine", default=None, choices=["piper", "kokoro", "espeak-dev"],
+                    help="default: the engine named in narration.json (piper if none)")
     ap.add_argument("--preview-only", action="store_true", help="only make and check out/voice-preview.wav")
     ap.add_argument("--no-asr", action="store_true", help="skip the speech-to-text check (offline development only)")
     args = ap.parse_args()
     asr = not args.no_asr
 
     cfg = json.loads((ROOT / "src" / "shorts" / args.short / "narration.json").read_text())
+    args.engine = args.engine or cfg.get("engine", "piper")
     for line in cfg["lines"]:
         # A caption is either plain text, or {"show": on-screen text, "say": how it is spoken}.
         line["captions"] = [c if isinstance(c, dict) else {"show": c, "say": c} for c in line["captions"]]
@@ -194,6 +220,12 @@ def main() -> int:
         """The voice model for a line; each voice is downloaded once and its license card recorded."""
         if voice not in models:
             models[voice] = ensure_piper_voice(voice) if args.engine == "piper" else None
+            if args.engine == "kokoro":
+                with (OUT / "voice-license.txt").open("a") as fh:
+                    fh.write(f"Voice: Kokoro-82M v1.0, voice '{voice}'\n"
+                             "Model weights: Apache License 2.0 - https://github.com/hexgrad/kokoro (LICENSE)\n"
+                             "Runner: kokoro-onnx, MIT License - https://github.com/thewh1teagle/kokoro-onnx (LICENSE)\n"
+                             "Model files: https://github.com/thewh1teagle/kokoro-onnx/releases/tag/model-files-v1.0\n\n")
         return models[voice]
 
     onnx = None
@@ -203,14 +235,16 @@ def main() -> int:
         except ImportError as e:
             die(f"Piper is not installed: {e}")
         onnx = model(cfg["voice"])
+    elif args.engine == "kokoro":
+        model(cfg["voice"])
     else:
         print("::warning::espeak-dev engine: robotic development voice, not for publishing", flush=True)
-    voice_name = cfg["voice"] if args.engine == "piper" else "espeak-ng (development only)"
+    voice_name = {"piper": cfg["voice"], "kokoro": f"Kokoro-82M v1.0, {cfg['voice']}"}.get(args.engine, "espeak-ng (development only)")
     scale = float(cfg.get("lengthScale", 1.0))
 
     # 1) A short sample first: proves the voice works before anything is rendered.
     preview_text = cfg["previewText"]
-    sample = synth(args.engine, onnx, preview_text, work / "preview-raw.wav", scale)
+    sample = synth(args.engine, onnx, preview_text, work / "preview-raw.wav", scale, cfg["voice"])
     sample = soft_limit(sample * loudness_gain([sample]))
     write_wav(OUT / "voice-preview.wav", sample)
     check_speech("voice-preview.wav", sample, OUT / "voice-preview.wav", preview_text, asr)
@@ -218,13 +252,13 @@ def main() -> int:
     # Extra samples (e.g. a second character's voice with its effect), each checked the same way.
     for extra_sample in cfg.get("voiceSamples", []):
         v = extra_sample.get("voice", cfg["voice"])
-        dry = synth(args.engine, model(v), extra_sample["text"], work / "sample-raw.wav", scale * float(extra_sample.get("lengthScale", 1.0)))
+        dry = synth(args.engine, model(v), extra_sample["text"], work / "sample-raw.wav", scale * float(extra_sample.get("lengthScale", 1.0)), v)
         dry = soft_limit(dry * loudness_gain([dry]))
         target = OUT / extra_sample["file"]
         write_wav(target, apply_effect(dry, extra_sample.get("effect"), work))
         write_wav(work / "sample-dry.wav", dry)
         check_speech(extra_sample["file"], dry, work / "sample-dry.wav", extra_sample["text"], asr, required=not extra_sample.get("optional", False))
-        log(f"[voice] sample OK: {target} ({v if args.engine == 'piper' else voice_name}, effect: {extra_sample.get('effect') or 'none'})")
+        log(f"[voice] sample OK: {target} ({voice_name if args.engine == 'espeak-dev' else v}, effect: {extra_sample.get('effect') or 'none'})")
     if args.preview_only:
         return 0
 
@@ -242,7 +276,7 @@ def main() -> int:
     total, gap, tail = 0.0, base_gap, base_tail
     for attempt in range(4):
         clips = [synth(args.engine, model(l.get("voice", cfg["voice"])), l["spoken"], work / f"{l['id']}.wav",
-                       scale * float(l.get("lengthScale", 1.0))) for l in cfg["lines"]]
+                       scale * float(l.get("lengthScale", 1.0)), l.get("voice", cfg["voice"])) for l in cfg["lines"]]
         speech = sum(len(c) for c in clips) / RATE
         gap, tail = base_gap, base_tail
         total = lead + speech + gap * n_gaps + extra + tail

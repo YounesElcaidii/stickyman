@@ -101,9 +101,9 @@ const paint = (screen: PhoneScreen) => (g: CanvasRenderingContext2D) => {
     g.strokeStyle = `rgba(120,220,150,${0.55 * (1 - screen.pulse)})`;
     g.lineWidth = 10;
     g.beginPath();
-    g.arc(W / 2, 330, 150 + 70 * screen.pulse, 0, 7);
+    g.arc(W / 2, 320, 186 + 60 * screen.pulse, 0, 7);
     g.stroke();
-    avatar(g, W / 2, 330, 140);
+    avatar(g, W / 2, 320, 176);
     g.fillStyle = "#ffffff";
     g.font = "700 104px Fredoka, Arial, sans-serif";
     g.fillText("Alex", W / 2, 610);
