@@ -10,8 +10,10 @@ import { Toon, between, boxGeo, capsuleGeo, cylGeo, sphereGeo } from "../../thre
  * the thumb is on the -X side. The left hand is the mirror image.
  */
 
-export const SKIN = "#f7dfbe"; // the mascot's cream colour
+export const SKIN = "#f7dfbe";
+const SKIN_DEFAULT = SKIN; // the mascot's cream colour
 export const SLEEVE = "#f0704a"; // the mascot's shirt
+const SLEEVE_DEFAULT = SLEEVE;
 const OUTLINE = 0.0042;
 
 export type FingerCurl = [number, number, number]; // radians at knuckle, middle joint, tip joint
@@ -33,7 +35,8 @@ const FINGERS = [
 const SEG = [0.45, 0.31, 0.24];
 const R = 0.0098;
 
-const Finger: React.FC<{ x: number; len: number; curl: FingerCurl; fan: number }> = ({ x, len, curl, fan }) => {
+const Finger: React.FC<{ x: number; len: number; curl: FingerCurl; fan: number; skin: string }> = ({ x, len, curl, fan, skin }) => {
+  const SKIN = skin;
   const seg = (i: number, child?: React.ReactNode) => {
     const l = len * SEG[i];
     return (
@@ -50,7 +53,8 @@ const Finger: React.FC<{ x: number; len: number; curl: FingerCurl; fan: number }
   );
 };
 
-export const Hand: React.FC<{ pose: HandPose; left?: boolean }> = ({ pose, left = false }) => {
+export const Hand: React.FC<{ pose: HandPose; left?: boolean; skin?: string }> = ({ pose, left = false, skin = SKIN_DEFAULT }) => {
+  const SKIN = skin;
   const curls = (Array.isArray(pose.fingers[0]) ? pose.fingers : [pose.fingers, pose.fingers, pose.fingers, pose.fingers]) as FingerCurl[];
   const spread = pose.spread ?? 0.05;
   return (
@@ -58,7 +62,7 @@ export const Hand: React.FC<{ pose: HandPose; left?: boolean }> = ({ pose, left 
       <group scale={[left ? -1 : 1, 1, 1]}>
         <Toon geometry={boxGeo(0.088, 0.03, 0.098, 0.013)} color={SKIN} outline={OUTLINE} position={[0, 0, -0.05]} />
         {FINGERS.map((f, i) => (
-          <Finger key={i} x={f.x} len={f.len} curl={curls[i]} fan={(i - 1.5) * spread} />
+          <Finger key={i} x={f.x} len={f.len} curl={curls[i]} fan={(i - 1.5) * spread} skin={skin} />
         ))}
         {/* thumb */}
         <group position={[-0.04, -0.004, -0.028]} rotation={[0, pose.thumbYaw ?? 0.95, 0]}>
@@ -91,7 +95,16 @@ export const solveElbow = (shoulder: THREE.Vector3, wrist: THREE.Vector3, left: 
 };
 
 /** Sleeve, forearm and hand for one arm. */
-export const Arm: React.FC<{ shoulder: THREE.Vector3; pose: HandPose; left?: boolean }> = ({ shoulder, pose, left = false }) => {
+export const Arm: React.FC<{ shoulder: THREE.Vector3; pose: HandPose; left?: boolean; skin?: string; sleeveColor?: string; cuff?: string }> = ({
+  shoulder,
+  pose,
+  left = false,
+  skin = SKIN_DEFAULT,
+  sleeveColor = SLEEVE_DEFAULT,
+  cuff = "#d95a36",
+}) => {
+  const SKIN = skin;
+  const SLEEVE = sleeveColor;
   const elbow = solveElbow(shoulder, pose.wrist, left);
   // the forearm ends a little behind the wrist joint, along the hand's own back direction
   const back = new THREE.Vector3(0, 0, 1).applyQuaternion(pose.rotation);
@@ -106,8 +119,8 @@ export const Arm: React.FC<{ shoulder: THREE.Vector3; pose: HandPose; left?: boo
       <Toon geometry={sphereGeo(0.05)} color={SLEEVE} outline={OUTLINE} position={[elbow.x, elbow.y, elbow.z]} />
       <Toon geometry={cylGeo(0.029, 0.036, 1, 18)} color={SKIN} outline={OUTLINE} position={fore.position} quaternion={fore.quaternion} scale={[1, fore.length, 1]} />
       <Toon geometry={cylGeo(0.04, 0.048, 1, 18)} color={SLEEVE} outline={OUTLINE} position={sleeve.position} quaternion={sleeve.quaternion} scale={[1, sleeve.length, 1]} />
-      <Toon geometry={cylGeo(0.043, 0.043, 0.022, 18)} color="#d95a36" outline={OUTLINE} position={[cuffAt.x, cuffAt.y, cuffAt.z]} quaternion={sleeve.quaternion} />
-      <Hand pose={pose} left={left} />
+      <Toon geometry={cylGeo(0.043, 0.043, 0.022, 18)} color={cuff} outline={OUTLINE} position={[cuffAt.x, cuffAt.y, cuffAt.z]} quaternion={sleeve.quaternion} />
+      <Hand pose={pose} left={left} skin={skin} />
     </group>
   );
 };

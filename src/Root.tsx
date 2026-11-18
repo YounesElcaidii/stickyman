@@ -4,6 +4,7 @@ import { AirplaneWindowShort } from "./shorts/airplane-window/AirplaneWindowShor
 import { CheeseAllergyShort } from "./shorts/cheese-allergy/CheeseAllergyShort";
 import { McFlurrySpoonShort, TEST_TIMING } from "./shorts/mcflurry-spoon/McFlurrySpoonShort";
 import { SomeoneAtTheDoor } from "./shorts/someone-at-the-door/SomeoneAtTheDoor";
+import { StrangerPreview, STRANGER_PREVIEW_FRAMES } from "./shorts/someone-at-the-door/StrangerPreview";
 import { DoorSample, SAMPLE } from "./shorts/someone-at-the-door/DoorSample";
 import { loadTiming, type Timing } from "./lib/timing";
 
@@ -27,6 +28,7 @@ export const RemotionRoot: React.FC = () => (
   <>
     {/* five-second first-person motion sample for "Someone Is Outside Your Door" */}
     <Composition id="DoorSample" component={DoorSample} width={1080} height={1920} fps={FPS} durationInFrames={SAMPLE.frames} />
+    <Composition id="StrangerPreview" component={StrangerPreview} width={1080} height={1920} fps={FPS} durationInFrames={STRANGER_PREVIEW_FRAMES} />
     {/* 3D smoke test: same scene and animation as McFlurrySpoon, on a fixed timing, no audio */}
     <Composition
       id="McFlurrySpoonTest"

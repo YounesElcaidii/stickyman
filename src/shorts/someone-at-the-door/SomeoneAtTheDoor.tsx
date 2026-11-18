@@ -166,7 +166,7 @@ export const SomeoneAtTheDoor: React.FC<{ timing: Timing }> = ({ timing }) => {
           {s.inPeephole ? (
             <>
               <Camera eye={PEEPHOLE_CAMERA.eye} look={PEEPHOLE_CAMERA.look} fov={PEEPHOLE_CAMERA.fov} />
-              <Hallway frame={frame} />
+              <Hallway frame={frame} act={{ blink: 0, tilt: -0.1, reach: 0, breathe: Math.sin(frame / 14) }} />
             </>
           ) : (
             <>

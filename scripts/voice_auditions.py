@@ -1,83 +1,124 @@
 #!/usr/bin/env python3
-"""Audition free Piper voices for a Short, and record each voice's license.
+"""Voice auditions for a Short, made with a free neural voice model that runs on the CPU.
 
-For every candidate in the Short's narration.json ("auditions"), this downloads the voice and its
-model card, speaks the narrator line, and speaks the phone line through a telephone filter.
+Reads the "auditions" block of the Short's narration.json. Each audition names a voice and a
+delivery: the text is spoken sentence by sentence, each at its own speed, with its own pause after
+it, so pace and pauses really differ between auditions (the model has no "emotion" control).
 
-Writes out/auditions/
-    narrator-<voice>.wav        the narrator line
-    phone-<voice>.wav           the caller's line with a subtle telephone filter
-    <voice>.license.txt         the voice's model card, as published with the voice
-    README.md                   one row per voice: license lines from its card, or the exact error
+Engine: Kokoro-82M v1.0 through kokoro-onnx.
+  - model weights: Apache License 2.0   (https://github.com/hexgrad/kokoro)
+  - kokoro-onnx runner: MIT License     (https://github.com/thewh1teagle/kokoro-onnx)
+  - runs on CPU with onnxruntime; no account, key or subscription
 
-A voice that cannot be downloaded or fails to speak is listed with its error; it never stops the run.
+Writes out/auditions/<file>.wav for each audition and out/auditions/README.md, which lists the
+model, voice name, delivery settings and what a speech-to-text pass understood.
 
-Usage: python3 scripts/voice_auditions.py someone-at-the-door
+Usage: python3 scripts/voice_auditions.py someone-at-the-door [--no-asr]
 """
 
 from __future__ import annotations
 
 import json
-import re
 import subprocess
 import sys
 import urllib.request
 from pathlib import Path
 
+import numpy as np
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from speechlib import RATE, db, read_wav, rms, soft_limit, transcribe, word_recall, write_wav  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
-VOICES = ROOT / ".voices"
+MODEL_DIR = ROOT / ".voices" / "kokoro"
 OUT = ROOT / "out" / "auditions"
-PHONE_FILTER = "highpass=f=320,lowpass=f=3300,acompressor=threshold=0.1:ratio=3:makeup=2,volume=0.9"
+RELEASE = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/"
+MODEL_NAME = "Kokoro-82M v1.0 (ONNX)"
+
+# Light effects: enough to place the voice, not enough to blur the words.
+EFFECTS = {
+    "phone": "highpass=f=260,lowpass=f=3600,acompressor=threshold=0.2:ratio=2:makeup=1.3",
+    "door": "highpass=f=90,lowpass=f=2600,aecho=0.8:0.4:28:0.14",
+}
 
 
-def card_url(voice: str) -> str:
-    lang, name, quality = voice.split("-")
-    return f"https://huggingface.co/rhasspy/piper-voices/resolve/main/{lang[:2]}/{lang}/{name}/{quality}/MODEL_CARD"
+def kokoro():
+    from kokoro_onnx import Kokoro
+
+    MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    for name, least in (("kokoro-v1.0.onnx", 300_000_000), ("voices-v1.0.bin", 20_000_000)):
+        target = MODEL_DIR / name
+        if not target.exists() or target.stat().st_size < least:
+            print(f"[auditions] downloading {name} ...", flush=True)
+            urllib.request.urlretrieve(RELEASE + name, target)
+    return Kokoro(str(MODEL_DIR / "kokoro-v1.0.onnx"), str(MODEL_DIR / "voices-v1.0.bin"))
+
+
+def resample(samples: np.ndarray, rate: int) -> np.ndarray:
+    if rate == RATE:
+        return samples.astype(np.float32)
+    n = int(round(len(samples) * RATE / rate))
+    return np.interp(np.linspace(0, len(samples) - 1, n), np.arange(len(samples)), samples).astype(np.float32)
+
+
+def speak(engine, item: dict) -> np.ndarray:
+    """Speak an audition: each segment at its own speed, followed by its own pause."""
+    parts = []
+    for seg in item["segments"]:
+        samples, rate = engine.create(seg["text"], voice=item["voice"], speed=float(seg.get("speed", 1.0)), lang="en-us")
+        parts.append(resample(samples, rate))
+        parts.append(np.zeros(int(float(seg.get("pauseAfter", 0.3)) * RATE), dtype=np.float32))
+    audio = np.concatenate(parts[:-1])
+    level = 10 ** (float(item.get("levelDb", -18.0)) / 20)
+    return soft_limit(audio * level / max(1e-6, rms(audio)))
+
+
+def with_effect(samples: np.ndarray, effect: str | None) -> np.ndarray:
+    if not effect:
+        return samples
+    src, dst = OUT / "fx-in.wav", OUT / "fx-out.wav"
+    write_wav(src, samples)
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-af", EFFECTS[effect], "-ar", str(RATE), "-ac", "1", str(dst)], check=True)
+    out, _ = read_wav(dst)
+    src.unlink()
+    dst.unlink()
+    return soft_limit(out * rms(samples) / max(1e-6, rms(out)))
 
 
 def main() -> int:
     short = sys.argv[1]
-    cfg = json.loads((ROOT / "src" / "shorts" / short / "narration.json").read_text())["auditions"]
+    asr = "--no-asr" not in sys.argv
+    items = json.loads((ROOT / "src" / "shorts" / short / "narration.json").read_text())["auditions"]
     OUT.mkdir(parents=True, exist_ok=True)
-    VOICES.mkdir(exist_ok=True)
-    rows = ["# Voice auditions\n", "| Voice | License lines from its model card | Result |", "| --- | --- | --- |"]
-    for voice in cfg["voices"]:
-        print(f"\n=== {voice}", flush=True)
-        try:
-            card = urllib.request.urlopen(card_url(voice), timeout=30).read().decode("utf-8", "replace")
-        except Exception as e:
-            card = ""
-            print(f"model card not available: {e}", flush=True)
-        (OUT / f"{voice}.license.txt").write_text(f"Voice: {voice}\nSource: {card_url(voice)}\n\n{card}\n")
-        print(card.strip(), flush=True)
-        keep = [l.strip() for l in card.splitlines() if re.search(r"licen|dataset|url|http|commercial|public domain|cc[ -]?by|attribution", l, re.I)]
-        license_lines = "<br>".join(keep[:8]).replace("|", "/") or "(no model card)"
-
-        onnx = VOICES / f"{voice}.onnx"
-        if not onnx.exists():
-            r = subprocess.run([sys.executable, "-m", "piper.download_voices", "--download-dir", str(VOICES), voice], capture_output=True, text=True)
-            if r.returncode != 0 or not onnx.exists():
-                err = (r.stderr or r.stdout).strip().splitlines()[-1:] or ["download failed"]
-                print(f"DOWNLOAD FAILED: {err[0]}", flush=True)
-                rows.append(f"| {voice} | {license_lines} | download failed: {err[0][:120]} |")
-                continue
-        result = []
-        for kind, text in (("narrator", cfg["narratorText"]), ("phone", cfg["alexText"])):
-            raw = OUT / f"raw-{kind}-{voice}.wav"
-            r = subprocess.run([sys.executable, "-m", "piper", "-m", str(onnx), "-f", str(raw), "--length-scale", "1.05"],
-                               input=text, capture_output=True, text=True)
-            if r.returncode != 0 or not raw.exists():
-                result.append(f"{kind}: failed ({(r.stderr or '').strip()[-100:]})")
-                continue
-            target = OUT / f"{kind}-{voice}.wav"
-            af = "loudnorm=I=-18:TP=-2" + ("," + PHONE_FILTER if kind == "phone" else "")
-            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(raw), "-af", af, "-ar", "22050", str(target)], check=True)
-            raw.unlink()
-            result.append(f"{kind}: ok")
-        print("; ".join(result), flush=True)
-        rows.append(f"| {voice} | {license_lines} | {'; '.join(result)} |")
+    engine = kokoro()
+    rows = [
+        "# Voice auditions\n",
+        f"Model: **{MODEL_NAME}** - weights Apache License 2.0, kokoro-onnx runner MIT. Runs on CPU, no paid service.\n",
+        "| File | Voice | Delivery | Effect | Length | Speech-to-text understood |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for item in items:
+        text = " ".join(s["text"] for s in item["segments"])
+        dry = speak(engine, item)
+        target = OUT / item["file"]
+        write_wav(target, with_effect(dry, item.get("effect")))
+        seconds = len(dry) / RATE
+        heard = "(not checked)"
+        if asr:
+            try:
+                said = transcribe(target)
+                recall, missed = word_recall(text, said)
+                heard = f"{recall * 100:.0f}% - \"{said}\""
+            except Exception as e:  # informative only
+                heard = f"(speech-to-text failed: {type(e).__name__}: {e})"
+        speeds = "/".join(f"{float(s.get('speed', 1.0)):.2f}" for s in item["segments"])
+        pauses = "/".join(f"{float(s.get('pauseAfter', 0.3)):.2f}" for s in item["segments"][:-1]) or "-"
+        print(f"[auditions] {item['file']}: {MODEL_NAME}, voice {item['voice']}, {item['label']}, {seconds:.2f}s, "
+              f"level {db(rms(dry)):.1f} dBFS, effect {item.get('effect') or 'none'}; heard: {heard}", flush=True)
+        rows.append(f"| `{item['file']}` | `{item['voice']}` | {item['label']} (speeds {speeds}; pauses {pauses} s) | "
+                    f"{item.get('effect') or 'none'} | {seconds:.1f} s | {heard} |")
     (OUT / "README.md").write_text("\n".join(rows) + "\n")
-    print(f"\nauditions written to {OUT}", flush=True)
+    print(f"[auditions] written to {OUT}", flush=True)
     return 0
 
 

@@ -218,7 +218,7 @@ jobs:
           mkdir -p deliver-sample
           cp "out/$SAMPLE_OUTPUT.mp4" deliver-sample/
           cp -r out/sample-frames deliver-sample/frames
-          cp -r out/auditions deliver-sample/voice-auditions
+          cp out/auditions/* deliver-sample/
 
       - name: Upload motion sample
         if: env.SAMPLE_ONLY == 'true'

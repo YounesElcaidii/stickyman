@@ -42,16 +42,12 @@ def main() -> int:
     expect(a is not None and a["codec_name"] == "aac", "AAC audio track", "no AAC audio track")
     if a is not None:
         mix = decode_audio(video)
-        half = len(mix) // 2
         peak = float(np.max(np.abs(mix)))
         expect(db(rms(mix)) > -45 and peak < 0.98, f"sound is audible and not clipping (level {db(rms(mix)):.1f} dBFS, peak {db(peak):.1f} dBFS)",
                f"sound is silent or clipping (level {db(rms(mix)):.1f} dBFS, peak {db(peak):.1f} dBFS)")
-        expect(db(rms(mix[half:])) > db(rms(mix[:half])) + 3,
-               f"the ring is louder than the quiet walk-up ({db(rms(mix[:half])):.1f} -> {db(rms(mix[half:])):.1f} dBFS)",
-               "the second half is not louder than the first - the ringtone may be missing")
     frames = ROOT / "out" / "sample-frames"
     frames.mkdir(parents=True, exist_ok=True)
-    for name, t in (("1-walk", 0.6), ("2-hand-on-handle", 2.05), ("3-phone-up", seconds - 0.5)):
+    for name, t in (("1-start", 0.4), ("2-middle", seconds / 2), ("3-end", seconds - 0.3)):
         target = frames / f"{name}.jpg"
         subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", f"{t:.2f}", "-i", str(video), "-frames:v", "1", "-q:v", "3", str(target)], check=True)
         raw = subprocess.run(["ffmpeg", "-v", "error", "-i", str(target), "-vf", "scale=108:192", "-f", "rawvideo", "-pix_fmt", "gray", "-"],

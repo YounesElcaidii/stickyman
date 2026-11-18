@@ -2,3 +2,4 @@ piper-tts==1.8.0
 pocketsphinx==5.1.1
 faster-whisper==1.2.1
 numpy
+kokoro-onnx==0.6.1

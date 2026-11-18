@@ -15,35 +15,74 @@ const H = 1110;
 const FONT = "700 68px Fredoka, Arial, sans-serif";
 
 const avatar = (g: CanvasRenderingContext2D, x: number, y: number, r: number) => {
-  // Alex: a little stick figure in his mustard jacket
-  g.fillStyle = "#3b4a6b";
-  g.beginPath();
-  g.arc(x, y, r, 0, 7);
-  g.fill();
+  // Alex's contact picture: the same hair, face and mustard jacket the stranger wears
   g.save();
   g.beginPath();
   g.arc(x, y, r, 0, 7);
   g.clip();
+  g.fillStyle = "#3b4a6b";
+  g.fillRect(x - r, y - r, r * 2, r * 2);
+  g.lineWidth = r * 0.06;
+  g.strokeStyle = "#16110f";
+  // jacket, collar, zip and shirt
   g.fillStyle = "#e0a526";
   g.beginPath();
-  g.ellipse(x, y + r * 0.95, r * 0.78, r * 0.62, 0, 0, 7);
-  g.fill();
-  g.fillStyle = "#b9831a";
-  g.fillRect(x - 4, y + r * 0.4, 8, r);
-  g.fillStyle = "#fff1dc";
-  g.strokeStyle = "#16110f";
-  g.lineWidth = r * 0.07;
-  g.beginPath();
-  g.arc(x, y - r * 0.12, r * 0.42, 0, 7);
+  g.ellipse(x, y + r * 1.08, r * 0.86, r * 0.62, 0, 0, 7);
   g.fill();
   g.stroke();
-  g.fillStyle = "#16110f";
+  g.fillStyle = "#2f8f8a";
   g.beginPath();
-  g.arc(x - r * 0.14, y - r * 0.16, r * 0.05, 0, 7);
-  g.arc(x + r * 0.14, y - r * 0.16, r * 0.05, 0, 7);
+  g.ellipse(x, y + r * 0.56, r * 0.2, r * 0.12, 0, 0, 7);
+  g.fill();
+  g.fillStyle = "#b9831a";
+  for (const sd of [-1, 1]) {
+    g.beginPath();
+    g.moveTo(x + sd * r * 0.06, y + r * 0.58);
+    g.lineTo(x + sd * r * 0.44, y + r * 0.5);
+    g.lineTo(x + sd * r * 0.3, y + r * 0.8);
+    g.closePath();
+    g.fill();
+    g.stroke();
+  }
+  g.fillStyle = "#f1e6d2";
+  g.fillRect(x - r * 0.025, y + r * 0.68, r * 0.05, r * 0.4);
+  // head and ears
+  g.fillStyle = "#f1c7a0";
+  g.beginPath();
+  g.ellipse(x - r * 0.4, y - r * 0.08, r * 0.07, r * 0.1, 0, 0, 7);
+  g.ellipse(x + r * 0.4, y - r * 0.08, r * 0.07, r * 0.1, 0, 0, 7);
   g.fill();
   g.beginPath();
-  g.arc(x, y - r * 0.04, r * 0.16, 0.15 * Math.PI, 0.85 * Math.PI);
+  g.ellipse(x, y - r * 0.08, r * 0.39, r * 0.45, 0, 0, 7);
+  g.fill();
+  g.stroke();
+  // hair with the side-swept fringe
+  g.fillStyle = "#3a2416";
+  g.beginPath();
+  g.moveTo(x - r * 0.42, y - r * 0.12);
+  g.quadraticCurveTo(x - r * 0.5, y - r * 0.66, x, y - r * 0.64);
+  g.quadraticCurveTo(x + r * 0.52, y - r * 0.64, x + r * 0.42, y - r * 0.1);
+  g.quadraticCurveTo(x + r * 0.36, y - r * 0.36, x + r * 0.1, y - r * 0.34);
+  g.quadraticCurveTo(x - r * 0.2, y - r * 0.26, x - r * 0.42, y - r * 0.12);
+  g.fill();
+  // brows, eyes, nose, friendly smile
+  g.strokeStyle = "#3a2416";
+  g.lineWidth = r * 0.06;
+  for (const sd of [-1, 1]) {
+    g.beginPath();
+    g.moveTo(x + sd * r * 0.08, y - r * 0.17);
+    g.lineTo(x + sd * r * 0.25, y - r * 0.19);
+    g.stroke();
+  }
+  g.fillStyle = "#16110f";
+  g.beginPath();
+  g.arc(x - r * 0.16, y - r * 0.06, r * 0.05, 0, 7);
+  g.arc(x + r * 0.16, y - r * 0.06, r * 0.05, 0, 7);
+  g.fill();
+  g.strokeStyle = "#5a1f1a";
+  g.lineWidth = r * 0.05;
+  g.beginPath();
+  g.arc(x, y + r * 0.05, r * 0.17, 0.15 * Math.PI, 0.85 * Math.PI);
   g.stroke();
   g.restore();
 };
