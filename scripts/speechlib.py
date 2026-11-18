@@ -63,6 +63,33 @@ def decode_audio(path: Path, rate: int = RATE) -> np.ndarray:
     return np.frombuffer(raw, dtype="<i2").astype(np.float32) / 32768.0
 
 
+def media_info(path: Path) -> dict:
+    """Streams and duration of a media file, in ffprobe's JSON shape, using only `ffmpeg`.
+
+    (The runner gets ffmpeg from a Python package, which has no ffprobe.) The whole file is decoded
+    once, so the video frame count is the number of frames that really decode.
+    """
+    log_text = subprocess.run(["ffmpeg", "-hide_banner", "-nostdin", "-i", str(path), "-f", "null", "-"],
+                              capture_output=True, text=True).stderr
+    streams = []
+    v = re.search(r"Stream #\d+:\d+.*?: Video: (\w+).*?, (\d{2,5})x(\d{2,5})", log_text)
+    if v:
+        fps = re.search(r"Stream #\d+:\d+.*?: Video:.*?([\d.]+) fps", log_text)
+        frames = re.findall(r"frame=\s*(\d+)", log_text)
+        rate = float(fps.group(1)) if fps else 0.0
+        streams.append({
+            "codec_type": "video", "codec_name": v.group(1), "width": int(v.group(2)), "height": int(v.group(3)),
+            "r_frame_rate": f"{int(rate)}/1" if rate == int(rate) else f"{rate}", "nb_read_packets": int(frames[-1]) if frames else 0,
+        })
+    a = re.search(r"Stream #\d+:\d+.*?: Audio: (\w+).*?, (\d+) Hz, ([\w.]+)", log_text)
+    if a:
+        channels = {"mono": 1, "stereo": 2}.get(a.group(3), a.group(3))
+        streams.append({"codec_type": "audio", "codec_name": a.group(1), "sample_rate": a.group(2), "channels": channels})
+    d = re.search(r"Duration: (\d+):(\d+):([\d.]+)", log_text)
+    duration = int(d.group(1)) * 3600 + int(d.group(2)) * 60 + float(d.group(3)) if d else 0.0
+    return {"streams": streams, "format": {"duration": duration}}
+
+
 def db(x: float) -> float:
     return 20.0 * float(np.log10(max(x, 1e-9)))
 

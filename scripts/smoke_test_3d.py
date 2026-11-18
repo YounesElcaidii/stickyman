@@ -24,6 +24,9 @@ from pathlib import Path
 
 import numpy as np
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from speechlib import media_info  # noqa: E402
+
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "out" / "3d-test"
 SCALE = 0.5
@@ -53,11 +56,8 @@ def still(composition: str, frame: int, name: str, gl: str, debug: bool) -> np.n
     if r.returncode != 0 or not target.exists():
         bad(f"{name}: could not render frame {frame}: {(r.stderr or r.stdout).strip()[-500:]}")
         return None
-    info = subprocess.run(
-        ["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height", "-of", "csv=p=0", str(target)],
-        capture_output=True, text=True, check=True,
-    ).stdout.strip().split(",")
-    w, h = int(info[0]), int(info[1])
+    video = media_info(target)["streams"][0]
+    w, h = video["width"], video["height"]
     raw = subprocess.run(["ffmpeg", "-v", "error", "-i", str(target), "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
                          capture_output=True, check=True).stdout
     return np.frombuffer(raw, dtype=np.uint8).reshape(h, w, 3).astype(np.int16)

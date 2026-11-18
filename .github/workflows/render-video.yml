@@ -39,18 +39,22 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # on a pull request, look at the branch's newest commit (and its parent) to see which Short it touches
+          # on a pull request, recent commits show which Short is being worked on
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 2
+          fetch-depth: 30
       - id: list
         env:
           PICK: ${{ inputs.short || 'all' }}
         run: |
-          # A pull request renders only the Shorts its newest commit touches; if that commit
-          # touches no Short folder (shared code only), every Short is rendered.
+          # A pull request renders only the Short(s) touched by the most recent commit that
+          # touched any Short folder (shared-code commits inherit that choice).
           touched=""
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            touched=$(git diff --name-only HEAD~1 HEAD | sed -n 's#^src/shorts/\([^/]*\)/.*#\1#p' | sort -u | while read -r d; do [ -f "src/shorts/$d/narration.json" ] && echo "$d"; done)
+            for i in $(seq 0 24); do
+              git rev-parse -q --verify "HEAD~$((i + 1))" >/dev/null || break
+              touched=$(git diff --name-only "HEAD~$((i + 1))" "HEAD~$i" | sed -n 's#^src/shorts/\([^/]*\)/.*#\1#p' | sort -u | while read -r d; do [ -f "src/shorts/$d/narration.json" ] && echo "$d"; done)
+              [ -n "$touched" ] && break
+            done
           fi
           if [ -n "$touched" ]; then
             shorts=$(echo "$touched" | python3 -c "import sys,json;print(json.dumps(sys.stdin.read().split()))")
@@ -110,20 +114,22 @@ jobs:
           python-version: "3.13"
           cache: pip
 
-      # ffmpeg is usually already on the runner. Installing it is bounded: a slow package mirror
-      # once spent 19 minutes in "apt-get update".
-      - name: Make sure ffmpeg is available
-        run: |
-          if command -v ffmpeg >/dev/null && command -v ffprobe >/dev/null; then
-            echo "ffmpeg already installed: $(ffmpeg -version | head -n1)"
-          else
-            timeout 180 sudo apt-get -o Acquire::http::Timeout=20 -o Acquire::Retries=2 update -qq || echo "::warning::apt-get update was slow or failed; trying the install anyway"
-            timeout 300 sudo apt-get -o Acquire::http::Timeout=20 -o Acquire::Retries=2 install -y -qq ffmpeg
-            ffmpeg -version | head -n1
-          fi
-
       - name: Install text-to-speech and speech-check tools (free, no API keys)
         run: pip install -r requirements.txt
+
+      # ffmpeg comes from a Python package (imageio-ffmpeg) when the runner does not have it:
+      # installing it with apt has twice hung on a slow package mirror.
+      - name: Make sure ffmpeg is available
+        run: |
+          if command -v ffmpeg >/dev/null; then
+            echo "ffmpeg already on the runner"
+          else
+            mkdir -p "$HOME/.local/bin"
+            ln -sf "$(python3 -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())')" "$HOME/.local/bin/ffmpeg"
+            echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+            export PATH="$HOME/.local/bin:$PATH"
+          fi
+          ffmpeg -version | head -n1
 
       - name: Cache voice and speech-check models
         uses: actions/cache@v4

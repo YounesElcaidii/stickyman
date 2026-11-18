@@ -15,7 +15,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from speechlib import RATE, db, decode_audio, rms  # noqa: E402
+from speechlib import RATE, db, decode_audio, media_info, rms  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 failures: list[str] = []
@@ -31,8 +31,7 @@ def expect(cond: bool, good: str, bad: str) -> None:
 
 def main() -> int:
     video, seconds = Path(sys.argv[1]), float(sys.argv[2])
-    info = json.loads(subprocess.run(["ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", str(video)],
-                                     check=True, capture_output=True, text=True).stdout)
+    info = media_info(video)
     v = next(s for s in info["streams"] if s["codec_type"] == "video")
     a = next((s for s in info["streams"] if s["codec_type"] == "audio"), None)
     duration = float(info["format"]["duration"])

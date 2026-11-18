@@ -27,7 +27,7 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from speechlib import RATE, db, decode_audio, read_wav, rms, transcribe, whisper_word_times, word_recall, words_of  # noqa: E402
+from speechlib import RATE, db, decode_audio, media_info, read_wav, rms, transcribe, whisper_word_times, word_recall, words_of  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 report: list[str] = []
@@ -51,11 +51,7 @@ def expect(cond: bool, msg_ok: str, msg_bad: str) -> None:
 
 
 def probe(path: Path) -> dict:
-    out = subprocess.run(
-        ["ffprobe", "-v", "error", "-count_packets", "-show_streams", "-show_format", "-of", "json", str(path)],
-        check=True, capture_output=True, text=True,
-    ).stdout
-    return json.loads(out)
+    return media_info(path)
 
 
 def best_match(mix: np.ndarray, ref: np.ndarray, expected: int, slack: int) -> tuple[float, int]:
