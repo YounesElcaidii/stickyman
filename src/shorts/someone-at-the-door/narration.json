@@ -1,0 +1,64 @@
+{
+  "title": "Someone Is Outside Your Door",
+  "composition": "SomeoneAtTheDoor",
+  "outputName": "someone-at-the-door",
+  "artifactName": "stickman-someone-at-the-door",
+  "gl": "swangle",
+  "engine": "kokoro",
+  "voice": "am_michael",
+  "voiceLicenseNote": "Kokoro-82M v1.0: model weights Apache License 2.0, kokoro-onnx runner MIT. Narrator: am_michael. Alex and the hallway voice: am_puck. The license record is saved next to the MP4 as voice-license.txt on every render.",
+  "lengthScale": 1.0,
+  "minLengthScale": 0.94,
+  "maxLengthScale": 1.1,
+  "gapSeconds": 0.42,
+  "maxGapSeconds": 0.7,
+  "leadInSeconds": 0.3,
+  "tailSeconds": 2.8,
+  "maxTailSeconds": 3.4,
+  "minSeconds": 35,
+  "maxSeconds": 45,
+  "pronunciations": { "peephole": "P IY P HH OW L" },
+  "previewText": "You're home alone when your friend texts, I'm outside. Three knocks follow. You walk to the door and reach for the handle.",
+  "voiceSamples": [
+    { "file": "voice-preview-alex-phone.wav", "voice": "am_puck", "effect": "phone", "text": "I'm still twenty minutes away." },
+    { "file": "voice-preview-hallway.wav", "voice": "am_puck", "effect": "door", "lengthScale": 1.12, "text": "Open up." }
+  ],
+  "lines": [
+    {
+      "id": "text",
+      "pauseAfter": 1.5,
+      "captions": ["You're home alone", "when your friend texts,", { "show": "“I'm outside.”", "say": "I'm outside." }]
+    },
+    { "id": "knocks", "captions": ["Three knocks follow."] },
+    { "id": "walk", "pauseAfter": 1.9, "captions": ["You walk to the door", "and reach for the handle."] },
+    { "id": "rings", "captions": ["Then your phone rings.", "It's your friend."] },
+    {
+      "id": "call",
+      "speaker": "alex",
+      "voice": "am_puck",
+      "effect": "phone",
+      "pauseAfter": 0.7,
+      "captions": [{ "show": "“I'm still twenty", "say": "I'm still twenty" }, { "show": "minutes away.”", "say": "minutes away." }]
+    },
+    { "id": "freezes", "pauseAfter": 0.6, "captions": ["Your hand freezes."] },
+    { "id": "hallway", "captions": ["From the hallway,", "his voice says,"] },
+    {
+      "id": "openup",
+      "speaker": "stranger",
+      "voice": "am_puck",
+      "effect": "door",
+      "lengthScale": 1.12,
+      "pauseAfter": 0.9,
+      "captions": [{ "show": "“Open up.”", "say": "Open up." }]
+    },
+    { "id": "peephole", "captions": ["You look through", "the peephole."] },
+    { "id": "still", "pauseAfter": 1.5, "captions": ["Someone wearing his jacket", "stands perfectly still."] },
+    { "id": "buzzes", "captions": ["Then your phone", "buzzes again."] },
+    {
+      "id": "locked",
+      "pauseAfter": 2.0,
+      "captions": [{ "show": "“Whatever you do,", "say": "Whatever you do," }, { "show": "keep the door locked.”", "say": "keep the door locked." }]
+    },
+    { "id": "choice", "lengthScale": 1.06, "captions": ["Do you speak", "through the door,", "or stay silent?"] }
+  ]
+}
