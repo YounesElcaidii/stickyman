@@ -232,11 +232,32 @@ def word_times(samples: np.ndarray, rate: int, text: str, wav: Path, use_whisper
     return estimate_word_times(samples, rate, text), "estimated"
 
 
+_ONES = "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split()
+_TENS = "twenty thirty forty fifty sixty seventy eighty ninety".split()
+
+
+def _number_words(n: int) -> str:
+    if n < 20:
+        return _ONES[n]
+    if n < 100:
+        return _TENS[n // 10 - 2] + ("" if n % 10 == 0 else " " + _ONES[n % 10])
+    if n < 1000:
+        return _ONES[n // 100] + " hundred" + ("" if n % 100 == 0 else " " + _number_words(n % 100))
+    if 1100 <= n < 2100 and n % 100:  # years: 2017 -> twenty seventeen
+        return _number_words(n // 100) + " " + _number_words(n % 100)
+    return str(n)
+
+
+def spell_numbers(text: str) -> str:
+    """Speech-to-text writes "20" where the script says "twenty"; compare them as the same words."""
+    return re.sub(r"\d+", lambda m: " " + _number_words(int(m.group())) + " ", text)
+
+
 def word_recall(expected_text: str, heard_text: str) -> tuple[float, list[str]]:
     """Share of the expected words that were heard (order-insensitive, counts respected)."""
-    expected = words_of(expected_text)
+    expected = words_of(spell_numbers(expected_text))
     pool: dict[str, int] = {}
-    for w in words_of(heard_text):
+    for w in words_of(spell_numbers(heard_text)):
         pool[w] = pool.get(w, 0) + 1
     hit, missed = 0, []
     for w in expected:
