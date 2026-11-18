@@ -3,6 +3,7 @@ import { Composition } from "remotion";
 import { AirplaneWindowShort } from "./shorts/airplane-window/AirplaneWindowShort";
 import { CheeseAllergyShort } from "./shorts/cheese-allergy/CheeseAllergyShort";
 import { McFlurrySpoonShort, TEST_TIMING } from "./shorts/mcflurry-spoon/McFlurrySpoonShort";
+import { SomeoneAtTheDoor } from "./shorts/someone-at-the-door/SomeoneAtTheDoor";
 import { DoorSample, SAMPLE } from "./shorts/someone-at-the-door/DoorSample";
 import { loadTiming, type Timing } from "./lib/timing";
 
@@ -19,6 +20,7 @@ const SHORTS: { id: string; short: string; component: React.FC<{ timing: Timing 
   { id: "AirplaneWindow", short: "airplane-window", component: AirplaneWindowShort },
   { id: "CheeseAllergy", short: "cheese-allergy", component: CheeseAllergyShort },
   { id: "McFlurrySpoon", short: "mcflurry-spoon", component: McFlurrySpoonShort },
+  { id: "SomeoneAtTheDoor", short: "someone-at-the-door", component: SomeoneAtTheDoor },
 ];
 
 export const RemotionRoot: React.FC = () => (

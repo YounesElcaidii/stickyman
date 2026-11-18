@@ -38,11 +38,23 @@ jobs:
       shorts: ${{ steps.list.outputs.shorts }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # on a pull request, look at the branch's newest commit (and its parent) to see which Short it touches
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
       - id: list
         env:
           PICK: ${{ inputs.short || 'all' }}
         run: |
-          if [ "$PICK" = "all" ]; then
+          # A pull request renders only the Shorts its newest commit touches; if that commit
+          # touches no Short folder (shared code only), every Short is rendered.
+          touched=""
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            touched=$(git diff --name-only HEAD~1 HEAD | sed -n 's#^src/shorts/\([^/]*\)/.*#\1#p' | sort -u | while read -r d; do [ -f "src/shorts/$d/narration.json" ] && echo "$d"; done)
+          fi
+          if [ -n "$touched" ]; then
+            shorts=$(echo "$touched" | python3 -c "import sys,json;print(json.dumps(sys.stdin.read().split()))")
+          elif [ "$PICK" = "all" ]; then
             shorts=$(ls -d src/shorts/*/ | xargs -n1 basename | python3 -c "import sys,json;print(json.dumps(sys.stdin.read().split()))")
           else
             test -f "src/shorts/$PICK/narration.json"
@@ -165,7 +177,7 @@ jobs:
         if: env.SAMPLE_ONLY != 'true'
         run: |
           mkdir -p deliver
-          cp "out/$OUTPUT.mp4" out/voice-preview.wav out/voice-license.txt out/check-report.md deliver/
+          cp "out/$OUTPUT.mp4" out/voice-*.wav out/voice-license.txt out/check-report.md deliver/
           cp -r out/frames deliver/frames
           if [ -d out/3d-test ]; then cp -r out/3d-test deliver/3d-test; fi
 
@@ -217,7 +229,7 @@ jobs:
         with:
           name: render-debug-${{ matrix.short }}
           path: |
-            out/voice-preview.wav
+            out/voice-*.wav
             out/voice-license.txt
             out/check-report.md
             out/frames

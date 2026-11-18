@@ -76,7 +76,8 @@ def save_model_card(voice: str) -> None:
     except Exception as e:  # the license record is informative; the narration itself is checked separately
         print(f"::warning::could not fetch the voice model card ({e})", flush=True)
         card = f"(model card could not be downloaded: {e})"
-    target.write_text(f"Voice: {voice}\nSource: {url}\n\n{card}\n")
+    with target.open("a") as fh:  # one block per voice used in this video
+        fh.write(f"Voice: {voice}\nSource: {url}\n\n{card}\n\n{'-' * 60}\n\n")
     log(f"[voice] model card saved to {target}:\n{card.strip()}\n")
 
 
@@ -100,6 +101,34 @@ def synth(engine: str, onnx: Path | None, text: str, out: Path, scale: float) ->
         n = int(round(len(samples) * RATE / rate))
         samples = np.interp(np.linspace(0, len(samples) - 1, n), np.arange(len(samples)), samples).astype(np.float32)
     return trim(samples)
+
+
+# Voice effects. Each keeps the clip's length, so caption timing measured on the clean voice still holds.
+EFFECTS = {
+    # a caller on the phone: slightly brighter and younger, narrow telephone band
+    "phone": "asetrate=22050*1.05,aresample=22050,atempo=0.952381,highpass=f=320,lowpass=f=3300,"
+             "acompressor=threshold=0.1:ratio=3:makeup=2",
+    # a voice on the other side of a closed door: a touch lower, muffled, a little hallway echo
+    "door": "asetrate=22050*0.96,aresample=22050,atempo=1.041667,highpass=f=110,lowpass=f=1100,"
+            "aecho=0.7:0.5:38:0.22,volume=1.6",
+}
+
+
+def apply_effect(samples: np.ndarray, effect: str | None, work: Path) -> np.ndarray:
+    if not effect:
+        return samples
+    if effect not in EFFECTS:
+        die(f"unknown voice effect '{effect}'")
+    src, dst = work / "fx-in.wav", work / "fx-out.wav"
+    write_wav(src, samples)
+    r = run(["ffmpeg", "-v", "error", "-y", "-i", str(src), "-af", EFFECTS[effect], "-ar", str(RATE), "-ac", "1", str(dst)])
+    if r.returncode != 0:
+        die(f"voice effect '{effect}' failed: {r.stderr.strip()[-400:]}")
+    out, _ = read_wav(dst)
+    if len(out) < len(samples):
+        out = np.concatenate([out, np.zeros(len(samples) - len(out), dtype=np.float32)])
+    out = out[: len(samples)]
+    return soft_limit(out * loudness_gain([out]))
 
 
 def trim(samples: np.ndarray, floor: float = 0.01, pad: float = 0.03) -> np.ndarray:
@@ -156,13 +185,22 @@ def main() -> int:
     work = OUT / "voice-work"
     OUT.mkdir(exist_ok=True)
 
+    (OUT / "voice-license.txt").unlink(missing_ok=True)
+    models: dict[str, Path | None] = {}
+
+    def model(voice: str) -> Path | None:
+        """The voice model for a line; each voice is downloaded once and its license card recorded."""
+        if voice not in models:
+            models[voice] = ensure_piper_voice(voice) if args.engine == "piper" else None
+        return models[voice]
+
     onnx = None
     if args.engine == "piper":
         try:
             import piper  # noqa: F401
         except ImportError as e:
             die(f"Piper is not installed: {e}")
-        onnx = ensure_piper_voice(cfg["voice"])
+        onnx = model(cfg["voice"])
     else:
         print("::warning::espeak-dev engine: robotic development voice, not for publishing", flush=True)
     voice_name = cfg["voice"] if args.engine == "piper" else "espeak-ng (development only)"
@@ -175,6 +213,16 @@ def main() -> int:
     write_wav(OUT / "voice-preview.wav", sample)
     check_speech("voice-preview.wav", sample, OUT / "voice-preview.wav", preview_text, asr)
     log(f"[voice] sample OK: {OUT / 'voice-preview.wav'} ({voice_name})")
+    # Extra samples (e.g. a second character's voice with its effect), each checked the same way.
+    for extra_sample in cfg.get("voiceSamples", []):
+        v = extra_sample.get("voice", cfg["voice"])
+        dry = synth(args.engine, model(v), extra_sample["text"], work / "sample-raw.wav", scale * float(extra_sample.get("lengthScale", 1.0)))
+        dry = soft_limit(dry * loudness_gain([dry]))
+        target = OUT / extra_sample["file"]
+        write_wav(target, apply_effect(dry, extra_sample.get("effect"), work))
+        write_wav(work / "sample-dry.wav", dry)
+        check_speech(extra_sample["file"], dry, work / "sample-dry.wav", extra_sample["text"], asr)
+        log(f"[voice] sample OK: {target} ({v if args.engine == 'piper' else voice_name}, effect: {extra_sample.get('effect') or 'none'})")
     if args.preview_only:
         return 0
 
@@ -191,7 +239,8 @@ def main() -> int:
     clips: list[np.ndarray] = []
     total, gap, tail = 0.0, base_gap, base_tail
     for attempt in range(4):
-        clips = [synth(args.engine, onnx, l["spoken"], work / f"{l['id']}.wav", scale) for l in cfg["lines"]]
+        clips = [synth(args.engine, model(l.get("voice", cfg["voice"])), l["spoken"], work / f"{l['id']}.wav",
+                       scale * float(l.get("lengthScale", 1.0))) for l in cfg["lines"]]
         speech = sum(len(c) for c in clips) / RATE
         gap, tail = base_gap, base_tail
         total = lead + speech + gap * n_gaps + extra + tail
@@ -211,14 +260,14 @@ def main() -> int:
         die(f"narration makes a {total:.2f}s video, outside {lo:.0f}-{hi:.0f}s; shorten or lengthen the script")
 
     # 3) One narration track on the video timeline, at a single consistent loudness.
-    gain = loudness_gain(clips)  # speech at -18 dBFS RMS, peaks rounded off below -1.5 dBFS
+    # every sentence at -18 dBFS RMS (voices differ in level), peaks rounded off below -1.5 dBFS
     track = np.zeros(int(round(total * RATE)), dtype=np.float32)
     lines, captions, methods = [], [], set()
     t = lead
     for line, clip in zip(cfg["lines"], clips):
-        clip = soft_limit(clip * gain)
+        clip = soft_limit(clip * loudness_gain([clip]))  # the clean voice: checked and used for caption timing
         start = int(round(t * RATE))
-        track[start:start + len(clip)] = clip
+        track[start:start + len(clip)] = apply_effect(clip, line.get("effect"), work)
         dur = len(clip) / RATE
         write_wav(work / f"{line['id']}-final.wav", clip)
         check_speech(f"line '{line['id']}'", clip, work / f"{line['id']}-final.wav", line["spoken"], asr=False)
@@ -233,7 +282,7 @@ def main() -> int:
             captions.append({"text": cap["show"], "spoken": cap["say"], "line": line["id"],
                              "start": round(t + first[1], 3), "end": round(t + last[2], 3)})
             i += n
-        lines.append({"id": line["id"], "text": line["text"], "spoken": line["spoken"], "start": round(t, 3), "duration": round(dur, 3)})
+        lines.append({"id": line["id"], "text": line["text"], "spoken": line["spoken"], "speaker": line.get("speaker", "narrator"), "start": round(t, 3), "duration": round(dur, 3)})
         t += dur + (own[len(lines) - 1] + gap - base_gap if len(lines) <= n_gaps else 0.0)
 
     # Each caption stays up until the next one starts (or a beat after the sentence ends).

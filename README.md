@@ -10,6 +10,7 @@ entirely on GitHub Actions — no PC, no manual editing, no voice recording, no 
 | Why Do Airplane Windows Have a Tiny Hole? | `airplane-window` | `AirplaneWindow` | `stickman-short-v2` | `airplane-window-short-v2.mp4` |
 | When a Cheese Prank Turned Fatal | `cheese-allergy` | `CheeseAllergy` | `stickman-cheese-allergy` | `cheese-allergy-short.mp4` |
 | Why Did McFlurry Spoons Have a Square Hole? (3D) | `mcflurry-spoon` | `McFlurrySpoon` | `stickman-mcflurry-spoon` | `mcflurry-spoon-short.mp4` |
+| Someone Is Outside Your Door (cel-shaded 3D, fiction) | `someone-at-the-door` | `SomeoneAtTheDoor` | `stickman-someone-at-the-door` | `someone-at-the-door.mp4` |
 
 ## Get a video from your phone
 
@@ -41,14 +42,6 @@ downscaled and re-encoded.
   exactly 1080 × 1920 and 30 fps with AAC audio, lasts the length set in `narration.json`, does not clip, has every narration
   sentence audible at the right time and clearly above the sound effects, and speech-to-text of
   the final file gives back the script, with caption timing cross-checked against it.
-
-## Shorts in review
-
-`someone-at-the-door` ("Someone Is Outside Your Door", cel-shaded first-person 3D) is marked
-`"sampleOnly": true` in its `narration.json`. While that is set, the workflow renders only its
-five-second motion sample (`DoorSample`) and voice auditions into the artifact `stickman-door-sample`:
-the sample MP4, three check frames, and `voice-auditions/` with every candidate voice speaking the
-narrator line and the phone line, next to each voice's model card (its license record).
 
 ## 3D Shorts
 

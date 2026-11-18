@@ -5,11 +5,14 @@ import type { HandPose } from "./Hands";
 
 /** The phone. Local space: screen faces +Z, top of the phone is +Y. */
 
-export type PhoneScreen = { kind: "message"; text: string } | { kind: "call"; pulse: number } | { kind: "off" };
+export type PhoneScreen =
+  | { kind: "message"; texts: string[] }
+  | { kind: "call"; pulse: number; connected?: boolean }
+  | { kind: "off" };
 
 const W = 540;
 const H = 1110;
-const FONT = "700 54px Fredoka, Arial, sans-serif";
+const FONT = "700 68px Fredoka, Arial, sans-serif";
 
 const avatar = (g: CanvasRenderingContext2D, x: number, y: number, r: number) => {
   // Alex: a little stick figure in his mustard jacket
@@ -67,8 +70,8 @@ const paint = (screen: PhoneScreen) => (g: CanvasRenderingContext2D) => {
     g.fillText("Alex", W / 2, 610);
     g.fillStyle = "#9fb0d6";
     g.font = "600 44px Fredoka, Arial, sans-serif";
-    g.fillText("incoming call…", W / 2, 680);
-    for (const [x, c] of [[150, "#e5484d"], [390, "#2fbf71"]] as const) {
+    g.fillText(screen.connected ? "on speaker · 00:03" : "incoming call…", W / 2, 680);
+    for (const [x, c] of (screen.connected ? [[270, "#e5484d"]] : [[150, "#e5484d"], [390, "#2fbf71"]]) as [number, string][]) {
       g.fillStyle = c;
       g.beginPath();
       g.arc(x, 920, 74, 0, 7);
@@ -84,35 +87,40 @@ const paint = (screen: PhoneScreen) => (g: CanvasRenderingContext2D) => {
   avatar(g, 86, 92, 50);
   g.textAlign = "left";
   g.fillStyle = "#ffffff";
-  g.font = "700 60px Fredoka, Arial, sans-serif";
-  g.fillText("Alex", 160, 112);
+  g.font = "700 72px Fredoka, Arial, sans-serif";
+  g.fillText("Alex", 160, 116);
   g.font = FONT;
-  const words = screen.text.split(" ");
-  const lines: string[] = [];
-  let cur = "";
-  for (const w of words) {
-    const next = cur ? `${cur} ${w}` : w;
-    if (g.measureText(next).width > 380 && cur) {
-      lines.push(cur);
-      cur = w;
-    } else cur = next;
-  }
-  lines.push(cur);
-  const bw = Math.max(...lines.map((l) => g.measureText(l).width)) + 64;
-  const bh = lines.length * 70 + 46;
-  g.fillStyle = "#e9edf5";
-  g.beginPath();
-  g.roundRect(36, 260, bw, bh, 38);
-  g.fill();
-  g.fillStyle = "#11131a";
-  lines.forEach((l, i) => g.fillText(l, 68, 334 + i * 70));
+  let y = 215;
+  screen.texts.forEach((text, n) => {
+    const lines: string[] = [];
+    let cur = "";
+    for (const w of text.split(" ")) {
+      const next = cur ? `${cur} ${w}` : w;
+      if (g.measureText(next).width > 425 && cur) {
+        lines.push(cur);
+        cur = w;
+      } else cur = next;
+    }
+    lines.push(cur);
+    const bw = Math.max(...lines.map((l) => g.measureText(l).width)) + 64;
+    const bh = lines.length * 90 + 50;
+    const newest = n === screen.texts.length - 1;
+    g.fillStyle = newest ? "#ffffff" : "#c9d0e0";
+    g.beginPath();
+    g.roundRect(36, y, bw, bh, 44);
+    g.fill();
+    g.fillStyle = "#11131a";
+    lines.forEach((l, i) => g.fillText(l, 68, y + 92 + i * 90));
+    y += bh + 34;
+  });
   g.fillStyle = "#7f8db0";
   g.font = "600 36px Fredoka, Arial, sans-serif";
-  g.fillText("now", 52, 260 + bh + 50);
+  g.fillText("now", 52, y + 22);
 };
 
 export const Phone: React.FC<{ position: THREE.Vector3; rotation: THREE.Quaternion; screen: PhoneScreen }> = ({ position, rotation, screen }) => {
-  const key = screen.kind === "message" ? screen.text : screen.kind === "call" ? `call${Math.round(screen.pulse * 12)}` : "off";
+  const key =
+    screen.kind === "message" ? screen.texts.join("|") : screen.kind === "call" ? `call${Math.round(screen.pulse * 12)}${screen.connected ? "c" : ""}` : "off";
   const tex = usePainted(W, H, paint(screen), [key]);
   return (
     <group position={position} quaternion={rotation}>

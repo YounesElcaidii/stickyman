@@ -149,7 +149,20 @@ def room() -> list[float]:
     return out
 
 
+def heartbeat() -> list[float]:
+    """A slow, low heartbeat (one beat a second, loops)."""
+    n = int(RATE * 1.0)
+    out = [0.0] * n
+    for start, level in ((0.0, 1.0), (0.24, 0.7)):
+        for i in range(int(RATE * 0.2)):
+            t = i / RATE
+            k = int(start * RATE) + i
+            out[k] += level * math.sin(2 * math.pi * (58 - 60 * t) * t) * math.exp(-t * 22)
+    return out
+
+
 if __name__ == "__main__":
+    write("heartbeat.wav", heartbeat())
     write("knock.wav", knock())
     write("footstep.wav", footstep())
     write("ringtone.wav", ringtone())

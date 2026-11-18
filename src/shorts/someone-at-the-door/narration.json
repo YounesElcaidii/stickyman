@@ -4,34 +4,81 @@
   "outputName": "someone-at-the-door",
   "artifactName": "stickman-someone-at-the-door",
   "gl": "swangle",
-  "sampleOnly": true,
-  "sample": {
-    "composition": "DoorSample",
-    "outputName": "door-motion-sample",
-    "artifactName": "stickman-door-sample",
-    "seconds": 5
-  },
-  "auditions": {
-    "narratorText": "You're home alone when your friend texts, I'm outside. Three knocks follow. You walk to the door and reach for the handle.",
-    "alexText": "I'm still twenty minutes away. Whatever you do, keep the door locked.",
-    "voices": [
-      "en_US-ljspeech-high",
-      "en_US-lessac-high",
-      "en_US-ryan-high",
-      "en_US-joe-medium",
-      "en_US-john-medium",
-      "en_US-bryce-medium",
-      "en_US-norman-medium",
-      "en_US-kusal-medium",
-      "en_US-hfc_male-medium",
-      "en_US-hfc_female-medium",
-      "en_US-amy-medium",
-      "en_US-kristin-medium",
-      "en_US-libritts_r-medium"
-    ]
-  },
-  "voice": "en_US-ljspeech-high",
+  "voice": "en_US-norman-medium",
+  "voiceLicenseNote": "Narrator: Piper en_US-norman-medium (LibriVox recordings, public domain). Alex: Piper en_US-joe-medium (CC0). Both model cards are saved next to the MP4 as voice-license.txt on every render.",
+  "lengthScale": 1.0,
+  "minLengthScale": 0.92,
+  "maxLengthScale": 1.12,
+  "gapSeconds": 0.42,
+  "maxGapSeconds": 0.75,
+  "leadInSeconds": 0.3,
+  "tailSeconds": 2.8,
+  "maxTailSeconds": 3.4,
   "minSeconds": 35,
   "maxSeconds": 45,
-  "script": "You're home alone when your friend texts, 'I'm outside.' Three knocks follow. You walk to the door and reach for the handle. Then your phone rings. It's your friend. 'I'm still twenty minutes away.' Your hand freezes. From the hallway, his voice says, 'Open up.' You look through the peephole. Someone wearing his jacket stands perfectly still. Then your phone buzzes again. 'Whatever you do, keep the door locked.' Do you speak through the door, or stay silent?"
+  "pronunciations": { "peephole": "P IY P HH OW L" },
+  "previewText": "You're home alone when your friend texts, I'm outside. Three knocks follow. You walk to the door and reach for the handle.",
+  "voiceSamples": [
+    {
+      "file": "voice-preview-alex-phone.wav",
+      "voice": "en_US-joe-medium",
+      "effect": "phone",
+      "text": "I'm still twenty minutes away. Whatever you do, keep the door locked."
+    },
+    {
+      "file": "voice-preview-hallway.wav",
+      "voice": "en_US-joe-medium",
+      "effect": "door",
+      "text": "Open up."
+    },
+    {
+      "file": "voice-alternative-narrator-john.wav",
+      "voice": "en_US-john-medium",
+      "text": "You're home alone when your friend texts, I'm outside. Three knocks follow."
+    },
+    {
+      "file": "voice-alternative-alex-bryce-phone.wav",
+      "voice": "en_US-bryce-medium",
+      "effect": "phone",
+      "text": "I'm still twenty minutes away."
+    }
+  ],
+  "lines": [
+    {
+      "id": "text",
+      "pauseAfter": 1.5,
+      "captions": ["You're home alone", "when your friend texts,", { "show": "“I'm outside.”", "say": "I'm outside." }]
+    },
+    { "id": "knocks", "captions": ["Three knocks follow."] },
+    { "id": "walk", "pauseAfter": 1.5, "captions": ["You walk to the door", "and reach for the handle."] },
+    { "id": "rings", "captions": ["Then your phone rings.", "It's your friend."] },
+    {
+      "id": "call",
+      "speaker": "alex",
+      "voice": "en_US-joe-medium",
+      "effect": "phone",
+      "pauseAfter": 0.55,
+      "captions": [{ "show": "“I'm still twenty", "say": "I'm still twenty" }, { "show": "minutes away.”", "say": "minutes away." }]
+    },
+    { "id": "freezes", "pauseAfter": 0.6, "captions": ["Your hand freezes."] },
+    { "id": "hallway", "captions": ["From the hallway,", "his voice says,"] },
+    {
+      "id": "openup",
+      "speaker": "stranger",
+      "voice": "en_US-joe-medium",
+      "effect": "door",
+      "lengthScale": 1.15,
+      "pauseAfter": 0.9,
+      "captions": [{ "show": "“Open up.”", "say": "Open up." }]
+    },
+    { "id": "peephole", "captions": ["You look through", "the peephole."] },
+    { "id": "still", "pauseAfter": 1.0, "captions": ["Someone wearing his jacket", "stands perfectly still."] },
+    { "id": "buzzes", "captions": ["Then your phone", "buzzes again."] },
+    {
+      "id": "locked",
+      "pauseAfter": 1.2,
+      "captions": [{ "show": "“Whatever you do,", "say": "Whatever you do," }, { "show": "keep the door locked.”", "say": "keep the door locked." }]
+    },
+    { "id": "choice", "captions": ["Do you speak", "through the door,", "or stay silent?"] }
+  ]
 }

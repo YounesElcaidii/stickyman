@@ -67,7 +67,33 @@ export const Door: React.FC<{ handleTurn?: number }> = ({ handleTurn = 0 }) => {
   );
 };
 
-export const Apartment: React.FC<{ frame: number; lampFlicker?: number }> = ({ frame, lampFlicker = 0 }) => {
+/** Comic impact lines on the door (a knock, or a voice from the other side). */
+const Burst: React.FC<{ strength: number; y: number; size: number }> = ({ strength, y, size }) => {
+  if (strength <= 0.02) return null;
+  return (
+    <group position={[0, y, 0.045]} scale={size}>
+      {Array.from({ length: 9 }).map((_, i) => {
+        const a = (i / 9) * Math.PI * 2 + 0.3;
+        const r = 0.1 + 0.1 * (1 - strength);
+        const len = 0.05 + 0.07 * strength;
+        return (
+          <mesh key={i} position={[Math.cos(a) * (r + len / 2), Math.sin(a) * (r + len / 2), 0]} rotation={[0, 0, a]}>
+            <planeGeometry args={[len, 0.012]} />
+            <meshBasicMaterial color="#fff6d8" transparent opacity={strength} toneMapped={false} />
+          </mesh>
+        );
+      })}
+    </group>
+  );
+};
+
+export const Apartment: React.FC<{ frame: number; lampFlicker?: number; handleTurn?: number; knock?: number; knockY?: number }> = ({
+  frame,
+  lampFlicker = 0,
+  handleTurn = 0,
+  knock = 0,
+  knockY = 1.25,
+}) => {
   const wall = usePainted(256, 256, (g) => {
     g.fillStyle = "#d9b98c";
     g.fillRect(0, 0, 256, 256);
@@ -181,7 +207,8 @@ export const Apartment: React.FC<{ frame: number; lampFlicker?: number }> = ({ f
         <meshToonMaterial map={wall} />
       </mesh>
 
-      <Door />
+      <Door handleTurn={handleTurn} />
+      <Burst strength={knock} y={knockY} size={knockY < 1.4 ? 2.4 : 0.9} />
 
       {/* window on the left wall, with curtains */}
       <group position={[X0 + 0.02, 1.5, 1.9]} rotation={[0, Math.PI / 2, 0]}>

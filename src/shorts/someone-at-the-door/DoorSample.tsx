@@ -118,7 +118,7 @@ export const DoorSample: React.FC = () => {
         <Apartment frame={frame} />
         <Arm shoulder={s.shoulderR} pose={s.right} />
         <Arm shoulder={s.shoulderL} pose={s.leftPose} left />
-        <Phone position={s.phonePos} rotation={s.phoneRot} screen={s.ringing ? { kind: "call", pulse: s.pulse } : { kind: "message", text: "I'm outside." }} />
+        <Phone position={s.phonePos} rotation={s.phoneRot} screen={s.ringing ? { kind: "call", pulse: s.pulse } : { kind: "message", texts: ["I'm outside."] }} />
       </ThreeCanvas>
 
       {/* sound: room tone, two footsteps, a soft touch on the handle, then the ring and buzz */}
