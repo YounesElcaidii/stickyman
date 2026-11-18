@@ -141,28 +141,30 @@ def trim(samples: np.ndarray, floor: float = 0.01, pad: float = 0.03) -> np.ndar
     return samples[a:b]
 
 
-def check_speech(label: str, samples: np.ndarray, wav: Path, expected: str, asr: bool) -> None:
+def check_speech(label: str, samples: np.ndarray, wav: Path, expected: str, asr: bool, required: bool = True) -> None:
     """Fail unless the audio is audible, unclipped English speech that matches the script."""
+    # an optional sample (an alternative voice offered for comparison) is reported, never fatal
+    fail = die if required else (lambda msg: print(f"::warning::{msg}", flush=True))
     seconds = len(samples) / RATE
     level, peak = db(rms(samples)), db(float(np.max(np.abs(samples))) if len(samples) else 0)
     n_words = len(words_of(expected))
     log(f"[check] {label}: {seconds:.2f}s, level {level:.1f} dBFS, peak {peak:.1f} dBFS, {n_words} words")
     if seconds < n_words * 0.12:
-        die(f"{label}: only {seconds:.2f}s of audio for {n_words} words - speech is missing")
+        fail(f"{label}: only {seconds:.2f}s of audio for {n_words} words - speech is missing")
     if level < -32:
-        die(f"{label}: audio is too quiet ({level:.1f} dBFS)")
+        fail(f"{label}: audio is too quiet ({level:.1f} dBFS)")
     if peak > -0.2:
-        die(f"{label}: audio is clipping (peak {peak:.1f} dBFS)")
+        fail(f"{label}: audio is clipping (peak {peak:.1f} dBFS)")
     if asr:
         try:
             heard = transcribe(wav)
         except Exception as e:
-            die(f"{label}: speech-to-text check could not run: {type(e).__name__}: {e}")
+            fail(f"{label}: speech-to-text check could not run: {type(e).__name__}: {e}")
         recall, missed = word_recall(expected, heard)
         log(f"[check] {label}: speech-to-text heard: \"{heard}\"")
         log(f"[check] {label}: {recall * 100:.0f}% of the script words recognised" + (f" (missed: {missed})" if missed else ""))
         if recall < 0.85:
-            die(f"{label}: the voice is not intelligible enough - only {recall * 100:.0f}% of the words were recognised. Heard: \"{heard}\"")
+            fail(f"{label}: the voice is not intelligible enough - only {recall * 100:.0f}% of the words were recognised. Heard: \"{heard}\"")
 
 
 def main() -> int:
@@ -221,7 +223,7 @@ def main() -> int:
         target = OUT / extra_sample["file"]
         write_wav(target, apply_effect(dry, extra_sample.get("effect"), work))
         write_wav(work / "sample-dry.wav", dry)
-        check_speech(extra_sample["file"], dry, work / "sample-dry.wav", extra_sample["text"], asr)
+        check_speech(extra_sample["file"], dry, work / "sample-dry.wav", extra_sample["text"], asr, required=not extra_sample.get("optional", False))
         log(f"[voice] sample OK: {target} ({v if args.engine == 'piper' else voice_name}, effect: {extra_sample.get('effect') or 'none'})")
     if args.preview_only:
         return 0

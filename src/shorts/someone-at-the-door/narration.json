@@ -33,11 +33,13 @@
     },
     {
       "file": "voice-alternative-narrator-john.wav",
+      "optional": true,
       "voice": "en_US-john-medium",
       "text": "You're home alone when your friend texts, I'm outside. Three knocks follow."
     },
     {
       "file": "voice-alternative-alex-bryce-phone.wav",
+      "optional": true,
       "voice": "en_US-bryce-medium",
       "effect": "phone",
       "text": "I'm still twenty minutes away."
