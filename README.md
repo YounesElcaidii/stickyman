@@ -42,6 +42,14 @@ downscaled and re-encoded.
   sentence audible at the right time and clearly above the sound effects, and speech-to-text of
   the final file gives back the script, with caption timing cross-checked against it.
 
+## Shorts in review
+
+`someone-at-the-door` ("Someone Is Outside Your Door", cel-shaded first-person 3D) is marked
+`"sampleOnly": true` in its `narration.json`. While that is set, the workflow renders only its
+five-second motion sample (`DoorSample`) and voice auditions into the artifact `stickman-door-sample`:
+the sample MP4, three check frames, and `voice-auditions/` with every candidate voice speaking the
+narrator line and the phone line, next to each voice's model card (its license record).
+
 ## 3D Shorts
 
 `mcflurry-spoon` is real 3D: Three.js through `@remotion/three`, with original models built in code

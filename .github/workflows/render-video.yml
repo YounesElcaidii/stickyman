@@ -7,6 +7,7 @@ on:
         description: "Which Short to render (folder in src/shorts), or 'all'"
         type: choice
         options:
+          - someone-at-the-door
           - mcflurry-spoon
           - cheese-allergy
           - airplane-window
@@ -76,6 +77,13 @@ jobs:
           print(f"ARTIFACT={cfg['artifactName']}")
           # Shorts with 3D scenes name the WebGL renderer the headless browser must use.
           print(f"GL_FLAG={'--gl=' + cfg['gl'] if cfg.get('gl') else ''}")
+          # A Short still in review renders only its short motion sample (plus voice auditions).
+          sample = cfg.get("sample", {}) if cfg.get("sampleOnly") else {}
+          print(f"SAMPLE_ONLY={'true' if sample else 'false'}")
+          print(f"SAMPLE_COMPOSITION={sample.get('composition', '')}")
+          print(f"SAMPLE_OUTPUT={sample.get('outputName', '')}")
+          print(f"SAMPLE_ARTIFACT={sample.get('artifactName', 'sample')}")
+          print(f"SAMPLE_SECONDS={sample.get('seconds', 5)}")
           PY
 
       - name: Set up Node.js
@@ -109,12 +117,15 @@ jobs:
       # Step 1: prove the voice works BEFORE rendering anything.
       # Fails with the exact error if the voice cannot be downloaded or does not speak clear English.
       - name: Generate and check a short voice sample
+        if: env.SAMPLE_ONLY != 'true'
         run: python3 scripts/make_voice.py "$SHORT" --preview-only
 
       - name: Generate full narration and caption timing
-        run: |
-          python3 scripts/make_voice.py "$SHORT"
-          python3 scripts/make_sfx.py
+        if: env.SAMPLE_ONLY != 'true'
+        run: python3 scripts/make_voice.py "$SHORT"
+
+      - name: Generate sound effects
+        run: python3 scripts/make_sfx.py
 
       - name: Install Node packages
         run: npm ci
@@ -125,18 +136,21 @@ jobs:
       # 3D Shorts only: a few half-size stills first, to catch black frames or WebGL failures
       # and to measure that the moving parts really connect, before spending minutes on the full render.
       - name: Short 3D test (WebGL stills)
+        if: env.SAMPLE_ONLY != 'true'
         run: python3 scripts/smoke_test_3d.py "$SHORT"
 
       - name: Render 1080x1920 video
+        if: env.SAMPLE_ONLY != 'true'
         run: |
           mkdir -p out
           npx remotion render "$COMPOSITION" "out/$OUTPUT.mp4" --concurrency=2 $GL_FLAG
 
       - name: Check the delivery file (size, streams, speech, clipping, frames)
+        if: env.SAMPLE_ONLY != 'true'
         run: python3 scripts/check_video.py "out/$OUTPUT.mp4" "$SHORT"
 
       - name: Write run summary
-        if: always()
+        if: always() && env.SAMPLE_ONLY != 'true'
         run: |
           {
             if [ -f out/check-report.md ]; then cat out/check-report.md; else echo "## Render stopped before the delivery check"; echo; echo "Open the failed step above for the exact error."; fi
@@ -148,6 +162,7 @@ jobs:
 
       # Only a file that passed every check is published.
       - name: Collect delivery files
+        if: env.SAMPLE_ONLY != 'true'
         run: |
           mkdir -p deliver
           cp "out/$OUTPUT.mp4" out/voice-preview.wav out/voice-license.txt out/check-report.md deliver/
@@ -155,10 +170,43 @@ jobs:
           if [ -d out/3d-test ]; then cp -r out/3d-test deliver/3d-test; fi
 
       - name: Upload MP4
+        if: env.SAMPLE_ONLY != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ARTIFACT }}
           path: deliver/
+          if-no-files-found: error
+          retention-days: 30
+
+      # ---- Shorts still in review: a short motion sample and voice auditions instead of the full video ----
+      - name: Render motion sample
+        if: env.SAMPLE_ONLY == 'true'
+        run: |
+          mkdir -p out
+          npx remotion render "$SAMPLE_COMPOSITION" "out/$SAMPLE_OUTPUT.mp4" --concurrency=2 $GL_FLAG
+
+      - name: Check motion sample (size, length, picture, sound)
+        if: env.SAMPLE_ONLY == 'true'
+        run: python3 scripts/check_sample.py "out/$SAMPLE_OUTPUT.mp4" "$SAMPLE_SECONDS"
+
+      - name: Voice auditions (candidate voices and their licenses)
+        if: env.SAMPLE_ONLY == 'true'
+        run: python3 scripts/voice_auditions.py "$SHORT"
+
+      - name: Collect sample files
+        if: env.SAMPLE_ONLY == 'true'
+        run: |
+          mkdir -p deliver-sample
+          cp "out/$SAMPLE_OUTPUT.mp4" deliver-sample/
+          cp -r out/sample-frames deliver-sample/frames
+          cp -r out/auditions deliver-sample/voice-auditions
+
+      - name: Upload motion sample
+        if: env.SAMPLE_ONLY == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.SAMPLE_ARTIFACT }}
+          path: deliver-sample/
           if-no-files-found: error
           retention-days: 30
 

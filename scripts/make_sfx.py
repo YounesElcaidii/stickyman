@@ -86,7 +86,75 @@ def whir() -> list[float]:
     return out
 
 
+def knock() -> list[float]:
+    """One knuckle knock on a wooden door."""
+    rnd = random.Random(5)
+    n = int(RATE * 0.22)
+    out = []
+    for i in range(n):
+        t = i / RATE
+        thud = math.sin(2 * math.pi * 150 * t) * math.exp(-t * 34)
+        wood = math.sin(2 * math.pi * 410 * t) * math.exp(-t * 60) * 0.6
+        rap = rnd.uniform(-1, 1) * math.exp(-t * 500) * 0.5
+        out.append(thud + wood + rap)
+    return out
+
+
+def footstep() -> list[float]:
+    """A soft step on a wooden floor."""
+    rnd = random.Random(8)
+    n = int(RATE * 0.2)
+    out, lp = [], 0.0
+    for i in range(n):
+        t = i / RATE
+        lp += 0.18 * (rnd.uniform(-1, 1) - lp)
+        out.append(math.sin(2 * math.pi * 82 * t) * math.exp(-t * 30) + lp * math.exp(-t * 45) * 1.6)
+    return out
+
+
+def ringtone() -> list[float]:
+    """Original phone ring: two short marimba-like notes, twice, then a rest (2 s, loops)."""
+    n = int(RATE * 2.0)
+    out = [0.0] * n
+    for start, freq in ((0.0, 880.0), (0.16, 1174.7), (0.5, 880.0), (0.66, 1174.7)):
+        for i in range(int(RATE * 0.3)):
+            t = i / RATE
+            k = int(start * RATE) + i
+            if k < n:
+                out[k] += math.exp(-t * 16) * (math.sin(2 * math.pi * freq * t) + 0.35 * math.sin(2 * math.pi * freq * 3 * t))
+    return out
+
+
+def buzz() -> list[float]:
+    """Phone vibration: a short low rattle."""
+    n = int(RATE * 0.45)
+    out = []
+    for i in range(n):
+        t = i / RATE
+        env = min(1.0, t / 0.02) * min(1.0, (0.45 - t) / 0.05)
+        out.append(env * (math.sin(2 * math.pi * 165 * t) * (0.6 + 0.4 * math.sin(2 * math.pi * 27 * t))))
+    return out
+
+
+def room() -> list[float]:
+    """Quiet night-time room tone (loops)."""
+    rnd = random.Random(21)
+    n = int(RATE * 8)
+    out, lp, lp2 = [], 0.0, 0.0
+    for i in range(n):
+        t = i / RATE
+        lp += 0.02 * (rnd.uniform(-1, 1) - lp)
+        lp2 += 0.2 * (lp - lp2)
+        out.append(lp2 * 3 + 0.12 * math.sin(2 * math.pi * 58 * t) * (0.8 + 0.2 * math.sin(2 * math.pi * 0.25 * t)))
+    return out
+
+
 if __name__ == "__main__":
+    write("knock.wav", knock())
+    write("footstep.wav", footstep())
+    write("ringtone.wav", ringtone())
+    write("buzz.wav", buzz())
+    write("room.wav", room())
     write("click.wav", click())
     write("whir.wav", whir())
     write("whoosh.wav", whoosh())
