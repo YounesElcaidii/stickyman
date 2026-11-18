@@ -49,8 +49,8 @@ export const marksFrom = (timing: Timing, fps: number, durationInFrames: number)
     liftFrom: ring + 17,
     answered: line.call.s - 3,
     peepIn: line.peephole.e + 2,
-    peepOut: line.still.e + 20,
-    buzz: line.still.e + 22,
+    peepOut: line.still.e + 9,
+    buzz: line.still.e + 11, // the buzz lands in the pause, before the narrator speaks again
     handleTurns: line.locked.e + 16,
     choiceAt: line.choice.s,
     end: durationInFrames,

@@ -32,6 +32,8 @@ const Camera: React.FC<{ eye: THREE.Vector3; look: THREE.Vector3; fov: number }>
 
 /** Everything you hear besides the voices, all kept well under the speech. */
 const Sound: React.FC<{ m: Marks }> = ({ m }) => {
+  // Looping sounds get their volume from the composition frame (a per-loop callback would restart each loop).
+  const frame = useCurrentFrame();
   const L = m.line;
   const steps: number[] = [];
   for (let f = m.walkFrom + 6; f < m.contact - 18; f += 13) steps.push(f);
@@ -39,7 +41,7 @@ const Sound: React.FC<{ m: Marks }> = ({ m }) => {
   const beatFrom = L.freezes.s;
   return (
     <>
-      <Html5Audio src={staticFile("sfx/room.wav")} loop volume={(f) => 0.07 * Math.min(1, Math.max(0, (m.end - 12 - f) / 50))} />
+      <Html5Audio src={staticFile("sfx/room.wav")} loop volume={0.07 * Math.min(1, Math.max(0, (m.end - 12 - frame) / 50))} />
       {m.knocks.map((at) => (
         <Sequence key={at} from={at} durationInFrames={9} layout="none">
           <Html5Audio src={staticFile("sfx/knock.wav")} volume={0.6} />
@@ -55,7 +57,7 @@ const Sound: React.FC<{ m: Marks }> = ({ m }) => {
       </Sequence>
       {/* the ring is loud for a beat, then drops under the narrator */}
       <Sequence from={m.ring} durationInFrames={ringFrames} layout="none">
-        <Html5Audio src={staticFile("sfx/ringtone.wav")} loop volume={(f) => (f + m.ring < L.rings.s - 3 ? 0.42 : 0.07) * Math.min(1, (ringFrames - f) / 6)} />
+        <Html5Audio src={staticFile("sfx/ringtone.wav")} loop volume={(frame < L.rings.s - 3 ? 0.42 : 0.03) * Math.min(1, Math.max(0, (m.answered - frame) / 6))} />
       </Sequence>
       <Sequence from={m.ring} durationInFrames={14} layout="none">
         <Html5Audio src={staticFile("sfx/buzz.wav")} volume={0.3} />
@@ -71,7 +73,7 @@ const Sound: React.FC<{ m: Marks }> = ({ m }) => {
         <Html5Audio
           src={staticFile("sfx/heartbeat.wav")}
           loop
-          volume={(f) => 0.1 * Math.min(1, f / 40) * Math.min(1, Math.max(0, (m.end - 10 - beatFrom - f) / 60))}
+          volume={0.1 * Math.min(1, Math.max(0, (frame - beatFrom) / 40)) * Math.min(1, Math.max(0, (m.end - 10 - frame) / 60))}
         />
       </Sequence>
     </>
